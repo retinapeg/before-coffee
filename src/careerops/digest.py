@@ -328,8 +328,8 @@ def render(data: dict) -> tuple[str, str]:
                   f"{counts['below_band']} did not meet the criteria, "
                   f"{counts.get('outside_configured_locations', 0)} were outside your"
                   " configured locations.",
-                  "", "Discovery is still running hourly. Nothing has been sent on your"
-                  " behalf and nothing has been applied for."]
+                  "", "Nothing has been sent on your behalf and nothing has been"
+                  " applied for."]
         return subject, "\n".join(lines)
 
     for group in data["groups"]:

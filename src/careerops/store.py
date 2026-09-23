@@ -84,7 +84,7 @@ class Store:
     # --- discovery runs --------------------------------------------------------------
 
     def runs(self):
-        # The private store also returns only the 50 most recent runs.
+        # Only the 50 most recent runs, matching the private store.
         with self.connect() as db:
             return [dict(json.loads(r["data"]), id=r["id"])
                     for r in db.execute("SELECT id,data FROM runs ORDER BY id DESC LIMIT 50")]

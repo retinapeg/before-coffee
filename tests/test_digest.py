@@ -3,7 +3,7 @@
 Every job here is invented. Example-based tests over the owner's own store would
 quietly become tests about the owner, would leak their data into the repository, and
 would break whenever discovery ran. The properties asserted are the ones the brief and
-AGENTS.md actually require, so they hold for any store.
+the project rules actually require, so they hold for any store.
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def _body(store, **kwargs):
 # --- what counts as new, and what counts as old -------------------------------------
 
 def test_a_job_with_no_posting_date_is_listed_and_labelled_not_guessed(tmp_path):
-    """AGENTS.md: first seen is never a posting date. A job the employer dated is the
+    """Project rule: first seen is never a posting date. A job the employer dated is the
     only kind that can be called recent."""
     store = _store(tmp_path, [{"posted_at": None, "first_seen": NOW.isoformat()}])
     data, body = _body(store)
