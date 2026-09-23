@@ -1,18 +1,21 @@
 """Deliver the digest to the reader's own mailbox, and to nowhere else.
 
-AGENTS.md says the app sends no email. That rule is about applications and recruiter
-contact, and the owner has decided explicitly that a digest to their own address is
-permitted. This module is built so that permission cannot quietly widen:
+The wider project's rule is that the app sends no email. That rule is about
+applications and recruiter contact, and the owner has decided explicitly that a digest
+to their own address is permitted. This module is built so that permission cannot
+quietly widen:
 
 **The default recipient is the authenticated mailbox itself**, asked of Gmail at send
 time rather than configured. Sending anywhere else requires
-`digest.allow_other_recipient` to be set to true by hand. So "this app messages no
-third party" is enforced by the code path, not by a promise in a document - and the
-owner's address never has to be written down in the repository to make it work.
+`digest.allow_other_recipient` to be set to true by hand, and so does sending at all
+when Gmail cannot say whose mailbox it is. So "this app messages no third party" is
+enforced by the code path, not by a promise in a document - and the owner's address
+never has to be written down in the repository to make it work.
 
-**It cannot start a browser authorisation.** `build_gmail_service` falls back to an
-interactive consent flow when a token is unusable, which would hang unattended and
-would re-authorise without the owner knowing. Every precondition is therefore checked
+**It cannot start a browser authorisation.** The private system's
+`build_gmail_service` falls back to an interactive consent flow when a token is
+unusable (the stand-in in this repository never does), which would hang unattended
+and would re-authorise without the owner knowing. Every precondition is therefore checked
 first, and a token that cannot be refreshed non-interactively is an error that says
 what to do rather than a browser window nobody is sitting in front of.
 

@@ -7,21 +7,23 @@ it has already sent, so tomorrow's email does not repeat today's.
 Four decisions that are not obvious:
 
 **"Meets your criteria" reads the evidence band, not `candidacy.recommended`.**
-`recommended` is False for every job in this store, because the recommendation gate
-closes on any uncertainty and almost every advert carries some. Reading it would
-produce a permanently empty digest. `fit_band` says whether the candidate's evidence
-supports the role, which is the question a digest is asking. See SESSION_NOTES.md.
+On the private system's store `recommended` was False for every job, because the
+recommendation gate closes on any uncertainty and almost every advert carries some.
+Reading it would produce a permanently empty digest. `fit_band` says whether the
+candidate's evidence supports the role, which is the question a digest is asking.
 
 **The ledger decides what is new, not a timestamp.** The brief asked for "jobs first
 seen since the last digest". Taken literally alongside a 25-a-day cap that is a data
-loss: tonight 156 roles qualified and 131 were held back by the cap, and every one of
-them was first seen BEFORE the digest that could not fit them. A time floor would
+loss: on one evening, measured on the private system's store (not reproducible
+from this repository), 156 roles qualified and 131 were held back by the cap, and
+every one of them was first seen BEFORE the digest that could not fit them. A time floor would
 discard all 131 permanently, while the email itself promises they "will appear in the
 next digest". The ledger of sent job ids excludes exactly what has been shown and
 nothing more, which is what "since the last digest" was reaching for. The floor is
-gone; the ledger is the only gate. Recorded in SESSION_NOTES.md.
+gone; the ledger is the only gate.
 
-**Age comes only from `posted_at`.** AGENTS.md: "First seen is never a posting date."
+**Age comes only from `posted_at`.** A standing project rule: "First seen is never a
+posting date."
 `first_seen` decides what is NEW TO US and nothing else. A job whose employer
 published no date is listed and labelled "posting date not published" rather than
 being quietly treated as new.

@@ -102,8 +102,8 @@ def evaluate(job: dict, settings: dict, *, now: datetime | None = None,
 
     posted = _parse(job.get("posted_at"))
     age_hours = (now - posted).total_seconds() / 3600 if posted else None
-    # Absent posting date is unknown age, never new. AGENTS.md: "First seen is
-    # never a posting date." first_seen is deliberately not consulted here at all.
+    # Absent posting date is unknown age, never new. A standing project rule: "First
+    # seen is never a posting date." first_seen is deliberately not consulted here at all.
     fresh_hit = age_hours is not None and 0 <= age_hours <= fresh_hours
 
     title_words = _words(job.get("title"))
@@ -115,11 +115,12 @@ def evaluate(job: dict, settings: dict, *, now: datetime | None = None,
     # candidacy["recommended"]. Two reasons, one principled and one measured. The
     # principled one: fit_band states whether the candidate's evidence supports the
     # role, while `recommended` is a downstream policy decision about whether to
-    # surface it - and this signal is about fit. The measured one: on this branch
-    # `recommended` is False for all 1,610 stored jobs, because the recommendation
+    # surface it - and this signal is about fit. The measured one, taken on the
+    # private system's store and not reproducible from this repository:
+    # `recommended` was False for all 1,610 stored jobs, because the recommendation
     # gate closes on any uncertainty and every advert carries some, so reading it
-    # would make ADJACENT permanently dead. fit_band varies (204 plausible, 264
-    # stretch, 1,142 not_suitable). See SESSION_NOTES.md.
+    # would make ADJACENT permanently dead. fit_band varied (204 plausible, 264
+    # stretch, 1,142 not_suitable).
     candidacy = (job.get("evaluation") or {}).get("candidacy") or {}
     meets_criteria = str(candidacy.get("fit_band") or "") in {"strong", "plausible"}
     adjacent_hit = bool(meets_criteria and title_words and not overlap)

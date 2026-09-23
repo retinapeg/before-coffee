@@ -31,19 +31,20 @@ behind it.
 `finally` block whose FIRST statement is `refresh_shortlist`. When that raised
 ("database is locked"), the rest of the `finally` never ran and the id stayed in
 `running_ids` for the life of the process - so every later poll refused with
-`search_already_running` and the app silently stopped collecting. Observed: 55 minutes
-without a poll while `due()` returned True the whole time. `create_run` writes
-`status: "running"` before the worker starts, so a run whose stored status is terminal
-cannot still be working and its id is stale. The poll reaps those ids rather than
-waiting for a restart.
+`search_already_running` and the app silently stopped collecting. Observed on the
+private system: 55 minutes without a poll while `due()` returned True the whole time.
+`create_run` writes `status: "running"` before the worker starts, so a run whose
+stored status is terminal cannot still be working and its id is stale. The poll reaps
+those ids rather than waiting for a restart.
 
 **It notifies nobody.** The only output of this branch is the morning digest, which
 runs on its own schedule and reads the store. The loop's job is inventory.
 
 **It continues the previous run instead of restarting it, and this is the whole
-reason it collects anything.** Measured on the real store: a fresh `normal` run dies
-at `time_limit` after 180s having contacted 5 of 62 employer boards, and abandons a
-pending queue of 256 entries. Registry order is deterministic, so runs 15 and 17 -
+reason it collects anything.** Measured on the private system's store (these figures
+cannot be reproduced from this repository): a fresh `normal` run dies at `time_limit`
+after 180s having contacted 5 of 62 employer boards, and abandons a pending queue of
+256 entries. Registry order is deterministic, so runs 15 and 17 -
 both london, both fresh - contacted exactly the same eight hosts with identical
 per-host counts, and run 17 stored `new_unique: 0`. No Lever host was contacted at
 all. An hourly loop that always starts fresh therefore re-polls the same five boards
