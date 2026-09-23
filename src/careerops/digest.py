@@ -35,8 +35,8 @@ has configured - is kept as each job's "Why:" line rather than as a heading.
 
 **Geography is part of "meets your criteria".** The evidence band says nothing about
 where a role is, so without this the digest offered Shanghai, Mexico City and Montreal
-to someone whose configured strategy is London first with configured Mediterranean
-locations alongside. The test uses the existing classifier, `inventory.classify_job`,
+to someone searching London plus a few configured countries. The test uses the
+existing classifier, `inventory.classify_job`,
 rather than a new rule of its own: a role qualifies on location if it is London or a
 London alternative, or if any of its countries is one the owner has enabled in
 settings. Turn it off with `digest.require_configured_location = false`.

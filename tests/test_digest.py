@@ -217,7 +217,7 @@ def test_a_real_salary_range_is_shown(tmp_path):
 
 def test_a_role_outside_every_configured_location_is_not_offered(tmp_path):
     """The evidence band says nothing about where a role is, so without this the digest
-    offered Shanghai to a London-and-Mediterranean search."""
+    offered Shanghai to a search limited to configured locations."""
     store = _store(tmp_path, [{"location": "Shanghai, China", "country": "CN"}],
                    settings={"require_configured_location": True})
     assert digest.select(store, now=NOW)["counts"]["selected"] == 0
