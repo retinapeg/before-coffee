@@ -7,21 +7,23 @@ it has already sent, so tomorrow's email does not repeat today's.
 Four decisions that are not obvious:
 
 **"Meets your criteria" reads the evidence band, not `candidacy.recommended`.**
-`recommended` is False for every job in this store, because the recommendation gate
-closes on any uncertainty and almost every advert carries some. Reading it would
-produce a permanently empty digest. `fit_band` says whether the candidate's evidence
-supports the role, which is the question a digest is asking. See SESSION_NOTES.md.
+On the private system's store `recommended` was False for every job, because the
+recommendation gate closes on any uncertainty and almost every advert carries some.
+Reading it would produce a permanently empty digest. `fit_band` says whether the
+candidate's evidence supports the role, which is the question a digest is asking.
 
 **The ledger decides what is new, not a timestamp.** The brief asked for "jobs first
 seen since the last digest". Taken literally alongside a 25-a-day cap that is a data
-loss: tonight 156 roles qualified and 131 were held back by the cap, and every one of
-them was first seen BEFORE the digest that could not fit them. A time floor would
+loss: on one evening, measured on the private system's store (not reproducible
+from this repository), 156 roles qualified and 131 were held back by the cap, and
+every one of them was first seen BEFORE the digest that could not fit them. A time floor would
 discard all 131 permanently, while the email itself promises they "will appear in the
 next digest". The ledger of sent job ids excludes exactly what has been shown and
 nothing more, which is what "since the last digest" was reaching for. The floor is
-gone; the ledger is the only gate. Recorded in SESSION_NOTES.md.
+gone; the ledger is the only gate.
 
-**Age comes only from `posted_at`.** AGENTS.md: "First seen is never a posting date."
+**Age comes only from `posted_at`.** AGENTS.md (not included in this repository):
+"First seen is never a posting date."
 `first_seen` decides what is NEW TO US and nothing else. A job whose employer
 published no date is listed and labelled "posting date not published" rather than
 being quietly treated as new.
@@ -33,8 +35,8 @@ has configured - is kept as each job's "Why:" line rather than as a heading.
 
 **Geography is part of "meets your criteria".** The evidence band says nothing about
 where a role is, so without this the digest offered Shanghai, Mexico City and Montreal
-to someone whose configured strategy is London first with configured Mediterranean
-locations alongside. The test uses the existing classifier, `inventory.classify_job`,
+to someone searching London plus a few configured countries. The test uses the
+existing classifier, `inventory.classify_job`,
 rather than a new rule of its own: a role qualifies on location if it is London or a
 London alternative, or if any of its countries is one the owner has enabled in
 settings. Turn it off with `digest.require_configured_location = false`.
@@ -57,7 +59,6 @@ SETTINGS_KEY = "digest"
 MAX_JOBS = 25
 FIT_BANDS = {"strong", "plausible"}
 
-# Strongest reason first. A job is listed under the first heading that applies.
 # The email's two sections, in printing order. Each job appears in exactly one.
 # Roles outside every configured country are excluded before this point.
 SECTIONS = (
@@ -74,6 +75,9 @@ GROUPS = (
 )
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+# Apply links carry long tracking parameters and a shortened one is a broken one. The
+# limit only bounds pathological input; control characters are removed either way.
+URL_LIMIT = 2048
 
 
 def _clean(value, limit: int = 200) -> str:
@@ -152,7 +156,9 @@ def select(store, *, now=None, limit=None, fresh_hours=None, include_already_sen
     terms = signals.searched_terms(store_settings)
     source_types = _source_types(store)
 
-    enabled_countries = {code for code, value in (store_settings.get("locations") or {}).items()
+    # Upper case, because classify_job reports country codes in upper case.
+    enabled_countries = {str(code).upper()
+                         for code, value in (store_settings.get("locations") or {}).items()
                          if (value or {}).get("enabled")}
     location_gate = configured["require_configured_location"] and bool(enabled_countries)
 
@@ -323,9 +329,11 @@ def render(data: dict) -> tuple[str, str]:
         lines += ["Nothing qualified this time.", "",
                   f"  {counts['qualifying']} met your criteria, "
                   f"{counts['already_sent']} were in an earlier digest, "
-                  f"{counts['below_band']} did not meet the criteria.",
-                  "", "Discovery is still running hourly. Nothing has been sent on your"
-                  " behalf and nothing has been applied for."]
+                  f"{counts['below_band']} did not meet the criteria, "
+                  f"{counts.get('outside_configured_locations', 0)} were outside your"
+                  " configured locations.",
+                  "", "Nothing has been sent on your behalf and nothing has been"
+                  " applied for."]
         return subject, "\n".join(lines)
 
     for group in data["groups"]:
@@ -340,7 +348,7 @@ def render(data: dict) -> tuple[str, str]:
             lines.append(f"    Salary: {salary}" if salary else "    Salary: not published")
             lines.append(f"    {_age(job, now)}")
             lines.append(f"    Why: {_why(row)}")
-            lines.append(f"    {_clean(job.get('url'), 400) or 'no link recorded'}")
+            lines.append(f"    {_clean(job.get('url'), URL_LIMIT) or 'no link recorded'}")
             lines.append("")
         lines.append("")
 

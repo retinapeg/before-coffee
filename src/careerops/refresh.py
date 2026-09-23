@@ -31,19 +31,20 @@ behind it.
 `finally` block whose FIRST statement is `refresh_shortlist`. When that raised
 ("database is locked"), the rest of the `finally` never ran and the id stayed in
 `running_ids` for the life of the process - so every later poll refused with
-`search_already_running` and the app silently stopped collecting. Observed: 55 minutes
-without a poll while `due()` returned True the whole time. `create_run` writes
-`status: "running"` before the worker starts, so a run whose stored status is terminal
-cannot still be working and its id is stale. The poll reaps those ids rather than
-waiting for a restart.
+`search_already_running` and the app silently stopped collecting. Observed on the
+private system: 55 minutes without a poll while `due()` returned True the whole time.
+`create_run` writes `status: "running"` before the worker starts, so a run whose
+stored status is terminal cannot still be working and its id is stale. The poll reaps
+those ids rather than waiting for a restart.
 
 **It notifies nobody.** The only output of this branch is the morning digest, which
 runs on its own schedule and reads the store. The loop's job is inventory.
 
 **It continues the previous run instead of restarting it, and this is the whole
-reason it collects anything.** Measured on the real store: a fresh `normal` run dies
-at `time_limit` after 180s having contacted 5 of 62 employer boards, and abandons a
-pending queue of 256 entries. Registry order is deterministic, so runs 15 and 17 -
+reason it collects anything.** Measured on the private system's store (these figures
+cannot be reproduced from this repository): a fresh `normal` run dies at `time_limit`
+after 180s having contacted 5 of 62 employer boards, and abandons a pending queue of
+256 entries. Registry order is deterministic, so runs 15 and 17 -
 both london, both fresh - contacted exactly the same eight hosts with identical
 per-host counts, and run 17 stored `new_unique: 0`. No Lever host was contacted at
 all. An hourly loop that always starts fresh therefore re-polls the same five boards
@@ -53,9 +54,11 @@ So each poll resumes the previous run's checkpoint, which restores its `pending`
 queue, and works through it. `alive()` compares `elapsed_before + time since start`
 against `timeout_seconds`, so a resumed run with a budget it has already spent stops
 before issuing one request. The budget therefore has to grow along the chain:
-`scheduled_budget` sets it to `consumed + slice`. Every limit is written with `max()`
-against what is already configured, so a scheduled run is never smaller than one the
-user could start by hand - this can widen coverage and cannot narrow it. When the
+`scheduled_budget` sets it to `consumed + slice`, and never below the project default
+timeout. Every value it writes is at least `COVERAGE_DEFAULTS` for that key and at
+least the value already in the same scope budget slot, so within that slot this can
+widen coverage and cannot narrow it. It does not compare against lower-precedence
+limits configured elsewhere. When the
 pending queue empties the chain is cleared and the next poll starts fresh, which
 re-seeds the registry and so picks up boards verified since.
 """
@@ -218,11 +221,15 @@ def continuation(store, scope: str, *, configured=None) -> dict:
 def scheduled_budget(store, scope: str, *, consumed_seconds: float, configured=None) -> dict:
     """Widen this scope's coverage budget so a continued run can actually do work.
 
-    Every value is written with max() against what is already configured, so this can
-    only ever increase coverage. It is written into
-    settings['search']['scope_budgets'][scope][mode], the highest-precedence slot in
-    discovery.coverage_limits, and the mode is the scheduler's own - so a manual
-    search in another mode is untouched.
+    The result is written into settings['search']['scope_budgets'][scope][mode], the
+    highest-precedence slot in discovery.coverage_limits, and the mode is the
+    scheduler's own - so a manual search in another mode is untouched.
+
+    What it guarantees, for every key in COVERAGE_DEFAULTS: the value written is at
+    least COVERAGE_DEFAULTS[key], and at least the value already in that same slot.
+    timeout_seconds is consumed + slice, capped at TIMEOUT_CEILING, and raised to the
+    default timeout when that is smaller. It does not read lower-precedence limits
+    configured elsewhere (for example search.limits), so it makes no promise about them.
 
     Without this a continued run stops before its first request: alive() compares
     elapsed_before plus time-since-start against timeout_seconds, and a resumed run
@@ -238,26 +245,32 @@ def scheduled_budget(store, scope: str, *, consumed_seconds: float, configured=N
     current = dict(scoped.get(mode) or {})
 
     wanted = int(consumed_seconds) + configured["slice_seconds"]
+    # The slice can be shorter than the default timeout, so the default is the floor.
     target = {**{k: COVERAGE_DEFAULTS[k] for k in COVERAGE_DEFAULTS},
-              "timeout_seconds": min(TIMEOUT_CEILING, wanted)}
-    # max() against the existing value: never narrow what the user configured.
+              "timeout_seconds": max(COVERAGE_DEFAULTS["timeout_seconds"],
+                                     min(TIMEOUT_CEILING, wanted))}
+    # max() against the existing value: never narrow what is already in this slot.
     merged = {k: max(int(current.get(k, 0) or 0), int(target[k])) for k in target}
     scoped[mode] = merged
     store.put_meta("settings", every)
     return merged
 
 
-# A run in one of these states still has a live worker. Anything else is finished,
-# however it finished, so its id in running_ids is a leak.
-LIVE_STATUSES = {"running", "cancelling"}
+# A run in one of these states has finished, however it finished, so its id in
+# running_ids is a leak. This is RESUMABLE plus `completed`, listed explicitly: any
+# other status, including one this module does not recognise, is left alone.
+TERMINAL_STATUSES = {"completed", "failed", "cancelled", "time_limit", "limit_reached",
+                     "interrupted"}
 
 
 def reap_stale_runs(application) -> list:
     """Drop run ids whose worker has died without clearing itself.
 
-    Only ever discards an id whose stored status is POSITIVELY terminal. An id with no
-    row, or a row we cannot read, is left alone: refusing to poll for an hour is a far
-    smaller harm than starting a second concurrent search over the same store.
+    Only ever discards an id whose stored status is POSITIVELY terminal, meaning one of
+    TERMINAL_STATUSES. An id with no row, a row we cannot read, or any other status
+    (running, cancelling, or one not recognised here such as queued) is left alone:
+    refusing to poll for an hour is a far smaller harm than starting a second
+    concurrent search over the same store.
     """
     running = getattr(application, "running_ids", None)
     if not running:
@@ -267,7 +280,7 @@ def reap_stale_runs(application) -> list:
     except Exception:  # noqa: BLE001 - a failed read must not start a concurrent search
         return []
     stale = [run_id for run_id in list(running)
-             if statuses.get(run_id) and statuses[run_id] not in LIVE_STATUSES]
+             if statuses.get(run_id) in TERMINAL_STATUSES]
     if not stale:
         return []
     lock = getattr(application, "search_lock", None)

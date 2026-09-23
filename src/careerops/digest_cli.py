@@ -53,7 +53,8 @@ def main(argv=None) -> int:
     counts = data["counts"]
     print("considered %(considered)d | qualifying %(qualifying)d | selected %(selected)d | "
           "held back %(held_back)d | in an earlier digest %(already_sent)d | "
-          "below the criteria %(below_band)d" % counts)
+          "below the criteria %(below_band)d | "
+          "outside configured locations %(outside_configured_locations)d" % counts)
 
     if args.save:
         subject, body = digest.render(data)

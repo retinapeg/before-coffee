@@ -1,17 +1,19 @@
-%% Architecture of before-coffee at commit 6fb1d46a205d4127ada1a03bbdea2d3c423a311e
-%% Sources: src/careerops/refresh.py, src/careerops/digest_cli.py, src/careerops/digest.py, src/careerops/signals.py, src/careerops/digest_delivery.py, scripts/install_digest_schedule.sh, scripts/reauthorise_gmail.py, scripts/digest_ingestion_census.py, tests/test_digest.py, tests/test_refresh_and_signals.py
-%% Render: npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/images/architecture.svg -b white
+%% Architecture of before-coffee at commit 5233c91c3dacbe2a677a6abfd38834678f7d5ade
+%% Sources: src/careerops/refresh.py, src/careerops/digest_cli.py, src/careerops/digest.py, src/careerops/signals.py, src/careerops/digest_delivery.py, scripts/install_digest_schedule.sh, scripts/reauthorise_gmail.py, scripts/digest_ingestion_census.py, scripts/demo.py, src/careerops/store.py, src/careerops/inventory.py, src/job_cv_agent/gmail_inbox.py, tests/test_digest.py, tests/test_refresh_and_signals.py, tests/test_offline_demo.py
+%% Render: npx @mermaid-js/mermaid-cli -c docs/mermaid-config.json -i docs/architecture.mmd -o docs/images/architecture.svg -b white
 flowchart TD
     boards["Public job sources<br/>ATS boards, aggregators"]:::ext
     loop["RefreshLoop, refresh.py<br/>hourly, when enabled"]:::det
     collector["Web app + collector<br/>start_search (not in repo)"]:::ext
-    checks["70 tests, invented data<br/>+ ingestion census"]:::eval
-    store[("SQLite job store<br/>jobs, runs, sent ledger<br/>(store code not in repo)")]:::store
+    checks["offline tests, invented data<br/>+ ingestion census"]:::eval
+    store[("SQLite job store<br/>jobs, runs, sent ledger<br/>(minimal stand-in in repo)")]:::store
     cli["digest_cli --send<br/>launchd, 07:00"]:::det
     select["digest.select<br/>ledger, fit band,<br/>location, cap 25"]:::det
     sig["signals.evaluate<br/>source, fresh, adjacent"]:::det
     deliver["render + deliver<br/>plain text, self-only"]:::det
-    gmail["Gmail API send<br/>(helpers not in repo)"]:::ext
+    gmail["Gmail API send<br/>(stand-in helpers in repo)"]:::ext
+    classify["inventory.classify_job<br/>location, minimal stand-in"]:::mock
+    demo["scripts/demo.py<br/>invented vacancies, dry run"]:::mock
     owner["Owner's own inbox<br/>reads and decides"]:::human
 
     boards -->|"public pages"| collector
@@ -22,10 +24,13 @@ flowchart TD
     store -->|"jobs + fit band"| select
     cli --> select
     select -->|"per job"| sig
+    select -->|"per job"| classify
     select -->|"up to 25 roles"| deliver
     deliver -->|"record sent ids"| store
     deliver --> gmail
     gmail --> owner
+    demo -.->|"seeds synthetic store"| store
+    demo -.->|"dry run, nothing sent"| cli
 
     classDef ai fill:#efe7fb,stroke:#6a4c93,stroke-width:2px,color:#2b1d45;
     classDef det fill:#eef3f8,stroke:#2f5d8a,stroke-width:1.5px,color:#172c37;

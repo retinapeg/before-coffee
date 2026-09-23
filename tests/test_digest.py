@@ -3,7 +3,8 @@
 Every job here is invented. Example-based tests over the owner's own store would
 quietly become tests about the owner, would leak their data into the repository, and
 would break whenever discovery ran. The properties asserted are the ones the brief and
-AGENTS.md actually require, so they hold for any store.
+AGENTS.md (not included in this repository) actually require, so they hold for any
+store.
 """
 from __future__ import annotations
 
@@ -52,8 +53,8 @@ def _body(store, **kwargs):
 # --- what counts as new, and what counts as old -------------------------------------
 
 def test_a_job_with_no_posting_date_is_listed_and_labelled_not_guessed(tmp_path):
-    """AGENTS.md: first seen is never a posting date. A job the employer dated is the
-    only kind that can be called recent."""
+    """AGENTS.md (not included in this repository): first seen is never a posting date.
+    A job the employer dated is the only kind that can be called recent."""
     store = _store(tmp_path, [{"posted_at": None, "first_seen": NOW.isoformat()}])
     data, body = _body(store)
     assert data["counts"]["selected"] == 1, "a job with no posting date must still be listed"
@@ -177,6 +178,25 @@ def test_a_hostile_job_title_cannot_break_out_of_the_email(tmp_path):
     assert "someone@evil.invalid" not in (message["To"] or "")
 
 
+def test_a_long_apply_link_is_printed_intact(tmp_path):
+    """Apply links with tracking parameters run to hundreds of characters. A link cut
+    short opens the wrong page or none, so length alone must never shorten it."""
+    url = "https://example.invalid/apply?" + "q=" + "a" * (1000 - len("https://example.invalid/apply?q="))
+    assert len(url) == 1000
+    store = _store(tmp_path, [{"url": url}])
+    data, body = _body(store)
+    assert "    " + url + "\n" in body + "\n"
+    message = digest.build_message(data, "owner@example.invalid")
+    assert url in message.get_content()
+
+
+def test_control_characters_are_still_removed_from_a_link(tmp_path):
+    store = _store(tmp_path, [{"url": "https://example.invalid/x\r\nBcc: someone@evil.invalid"}])
+    _, body = _body(store)
+    assert "\r" not in body
+    assert "https://example.invalid/x Bcc: someone@evil.invalid" in body
+
+
 def test_a_salary_parse_artefact_is_reported_as_unpublished(tmp_path):
     """The store holds records with a currency of "unknown" and a 20-to-20 annual
     range. Printed verbatim that became "unknown20 to 20 per annual"."""
@@ -198,11 +218,51 @@ def test_a_real_salary_range_is_shown(tmp_path):
 
 def test_a_role_outside_every_configured_location_is_not_offered(tmp_path):
     """The evidence band says nothing about where a role is, so without this the digest
-    offered Shanghai to a London-and-Mediterranean search."""
+    offered Shanghai to a search limited to configured locations."""
     store = _store(tmp_path, [{"location": "Shanghai, China", "country": "CN"}],
                    settings={"require_configured_location": True})
     assert digest.select(store, now=NOW)["counts"]["selected"] == 0
     assert digest.select(store, now=NOW)["counts"]["outside_configured_locations"] == 1
+
+
+def test_a_country_enabled_under_a_lower_case_key_still_counts(tmp_path):
+    """The classifier reports country codes in upper case, so a location saved as "fr"
+    must still match a role in one of its cities rather than be counted as outside."""
+    store = _store(tmp_path, [{"location": "Paris, France"}],
+                   settings={"require_configured_location": True})
+    configured = store.settings()
+    configured["locations"]["fr"] = {"enabled": True, "cities": ["Paris"]}
+    store.put_meta("settings", configured)
+
+    data = digest.select(store, now=NOW)
+    assert data["counts"]["outside_configured_locations"] == 0
+    assert data["counts"]["selected"] == 1
+    assert data["rows"][0]["region"] == "international"
+
+
+def test_every_considered_role_is_accounted_for_in_the_counts(tmp_path, capsys):
+    """The counts line and the empty digest must add up: a role excluded for its
+    location is reported as such rather than disappearing from the arithmetic."""
+    store = _store(tmp_path, [{"location": "Shanghai, China"},
+                              {"evaluation": {"candidacy": {"fit_band": "not_suitable"}}}],
+                   settings={"require_configured_location": True,
+                             "allow_other_recipient": True})
+    data, body = _body(store)
+    counts = data["counts"]
+    assert counts["outside_configured_locations"] == 1 and counts["below_band"] == 1
+    assert counts["considered"] == (counts["qualifying"] + counts["already_sent"]
+                                    + counts["below_band"] + counts["outside_configured_locations"])
+    assert "1 were outside your configured locations" in body
+
+    from careerops import digest_cli
+    assert digest_cli.main(["--dry-run", "--data", str(tmp_path / "digest.sqlite3")]) == 0
+    line = capsys.readouterr().out.splitlines()[0]
+    numbers = dict((label.strip(), int(value)) for label, value in
+                   (part.strip().rsplit(" ", 1) for part in line.split("|")))
+    assert numbers["outside configured locations"] == 1
+    assert numbers["considered"] == (numbers["qualifying"] + numbers["in an earlier digest"]
+                                     + numbers["below the criteria"]
+                                     + numbers["outside configured locations"])
 
 
 def test_the_location_gate_can_be_turned_off(tmp_path):
@@ -251,6 +311,20 @@ def test_an_unusable_token_is_an_error_and_never_a_browser_consent_flow(tmp_path
         digest_delivery.gmail_service(path=wrong_scope)
 
 
+def test_a_send_only_token_fails_preflight_for_the_missing_read_scope(tmp_path):
+    """A real send first asks Gmail whose mailbox this is (users.getProfile), which the
+    send scope alone does not allow. Such a token must be rejected before any client is
+    built, with the scope named, not refused later with a vaguer message."""
+    send_only = tmp_path / "send_only.json"
+    send_only.write_text(json.dumps({"token": "x", "refresh_token": "y",
+                                     "scopes": ["https://www.googleapis.com/auth/gmail.send"]}))
+    state = digest_delivery.token_state(send_only)
+    assert state["usable"] is False
+    assert state["reason"] == "missing scope: https://www.googleapis.com/auth/gmail.readonly"
+    with pytest.raises(digest_delivery.DeliveryError, match="missing scope"):
+        digest_delivery.gmail_service(path=send_only)
+
+
 def test_nothing_is_sent_when_nothing_qualifies(tmp_path):
     """A "nothing today" email every morning trains the reader to ignore the next one."""
     store = _store(tmp_path, [{"evaluation": {"candidacy": {"fit_band": "not_suitable"}}}])
@@ -283,6 +357,41 @@ def test_a_send_records_exactly_what_went_out(tmp_path, monkeypatch):
     assert digest.ledger(store)["last_message_id"] == "gmail-id-1"
     # And the second digest of the same store has nothing left to say.
     assert digest.select(store, now=NOW + timedelta(hours=1))["counts"]["selected"] == 0
+
+
+def test_nothing_is_sent_when_gmail_cannot_say_whose_mailbox_it_is(tmp_path, monkeypatch):
+    """The self-only guard must not fail open. If the profile lookup fails and the
+    token file records no account, there is nothing to check the configured address
+    against, so a send to someone else has to be refused rather than let through."""
+    store = _store(tmp_path, [{}], settings={"to": "someone.else@example.invalid"})
+    sent = []
+    monkeypatch.setattr("job_cv_agent.email_delivery.send_job_email",
+                        lambda service, message: sent.append(message["To"]) or "gmail-id-1")
+
+    class ProfileUnavailable:
+        def users(self):
+            raise RuntimeError("profile lookup failed")
+
+    data = digest.select(store, now=NOW)
+    with pytest.raises(digest_delivery.DeliveryError, match="did not report which mailbox"):
+        digest_delivery.deliver(store, data, service=ProfileUnavailable(),
+                                path=tmp_path / "no-token.json", now=NOW)
+    assert sent == []
+    assert digest.ledger(store)["sends"] == 0
+
+
+def test_the_deliberate_switch_still_permits_a_send_gmail_cannot_confirm(tmp_path, monkeypatch):
+    store = _store(tmp_path, [{}], settings={"to": "someone.else@example.invalid",
+                                             "allow_other_recipient": True})
+    sent = []
+    monkeypatch.setattr("job_cv_agent.email_delivery.send_job_email",
+                        lambda service, message: sent.append(message["To"]) or "gmail-id-1")
+    monkeypatch.setattr(digest_delivery, "mailbox_address", lambda service: "")
+    data = digest.select(store, now=NOW)
+    result = digest_delivery.deliver(store, data, service=object(),
+                                     path=tmp_path / "no-token.json", now=NOW)
+    assert result["sent"] is True
+    assert sent == ["someone.else@example.invalid"]
 
 
 def test_the_message_carries_no_attachment_and_no_html(tmp_path):

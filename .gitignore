@@ -6,3 +6,4 @@ google_oauth_*.json
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/

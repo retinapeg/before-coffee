@@ -20,7 +20,7 @@ NOW = datetime(2026, 9, 21, 6, 0, tzinfo=timezone.utc)
 SETTINGS = {"strategy": {}, "locations": {}}
 
 def job(**overrides):
-    base = {"id": 1, "title": "Quantitative Developer", "company": "Example",
+    base = {"id": 1, "title": "Logistics Planner", "company": "Example",
             "posted_at": (NOW - timedelta(hours=3)).isoformat(),
             "evaluation": {"candidacy": {"fit_band": "plausible"}}}
     return {**base, **overrides}
@@ -61,7 +61,7 @@ def test_an_unrecorded_source_is_neither_ats_nor_aggregator():
     assert marks["source"]["kind"] == "unknown" and marks["source"]["hit"] is False
 
 
-# --- FRESH: the signal AGENTS.md constrains most tightly ---------------------------
+# --- FRESH: the signal AGENTS.md (not included in this repository) constrains most tightly ---
 
 def test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh():
     marks = signals.evaluate(job(posted_at=None), SETTINGS, now=NOW, searched=set())
@@ -69,8 +69,8 @@ def test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh():
 
 
 def test_first_seen_is_never_used_as_a_posting_date():
-    """AGENTS.md: "First seen is never a posting date." A job discovered seconds ago
-    with no published posting date must not become fresh."""
+    """AGENTS.md (not included in this repository): "First seen is never a posting date."
+    A job discovered seconds ago with no published posting date must not become fresh."""
     recent = job(posted_at=None, first_seen=NOW.isoformat(), discovered_at=NOW.isoformat())
     assert signals.evaluate(recent, SETTINGS, now=NOW, searched=set())["fresh"]["hit"] is False
 
@@ -99,7 +99,7 @@ def test_a_title_made_of_terms_you_already_search_for_is_not_adjacent():
 
 def test_a_title_outside_your_searches_that_still_fits_is_adjacent():
     marks = signals.evaluate(job(title="Solutions Consultant"), SETTINGS, now=NOW,
-                             searched={"python", "quantitative"})
+                             searched={"logistics", "planner"})
     assert marks["adjacent"]["hit"] is True
 
 
@@ -230,6 +230,21 @@ def test_a_scheduled_run_can_only_widen_coverage_never_narrow(tmp_path):
         assert merged[key] >= floor, f"{key} fell below the project default"
 
 
+def test_a_first_scheduled_run_on_a_fresh_store_is_never_below_the_project_defaults(tmp_path):
+    """With nothing configured in scope_budgets, the slot this writes is the highest
+    precedence one, so a value below COVERAGE_DEFAULTS would narrow every scheduled run.
+    The slice (600s) is shorter than the default timeout (900s)."""
+    from careerops.discovery import COVERAGE_DEFAULTS
+    store = _scheduling_store(tmp_path, slice_seconds=600)
+    assert "scope_budgets" not in store.settings().get("search", {})
+
+    merged = refresh.scheduled_budget(store, "london", consumed_seconds=0.0)
+    for key, floor in COVERAGE_DEFAULTS.items():
+        assert merged[key] >= floor, f"{key} fell below the project default"
+    stored = store.settings()["search"]["scope_budgets"]["london"]["deep"]
+    assert stored == merged
+
+
 def test_the_budget_grows_along_the_chain_or_a_resumed_run_does_no_work(tmp_path):
     """alive() charges elapsed_before against timeout_seconds, so a continued run whose
     budget has not grown stops before its first request."""
@@ -306,6 +321,28 @@ def test_a_dead_worker_does_not_block_the_poll_forever(tmp_path):
     assert result["ran"] is True, "a dead worker blocked the poll"
     assert dead["id"] in result["reaped"]
     assert dead["id"] not in app.running_ids
+
+
+def test_only_a_positively_terminal_status_is_reaped(tmp_path):
+    """A status the reaper does not recognise, such as 'queued', might belong to a run
+    that has not started working yet, so its id stays. A 'failed' one is still cleared."""
+    class FakeApp:
+        def __init__(self, store, running):
+            self.store, self.running_ids = store, set(running)
+
+    store = _scheduling_store(tmp_path)
+    queued = store.create_run("deep", None, None)
+    store.update_run(queued["id"], {"status": "queued"})
+    failed = store.create_run("deep", None, None)
+    store.update_run(failed["id"], {"status": "failed"})
+
+    app = FakeApp(store, {queued["id"]})
+    assert refresh.reap_stale_runs(app) == []
+    assert queued["id"] in app.running_ids
+
+    app = FakeApp(store, {queued["id"], failed["id"]})
+    assert refresh.reap_stale_runs(app) == [failed["id"]]
+    assert app.running_ids == {queued["id"]}
 
 
 def test_a_live_search_is_still_never_interrupted(tmp_path):

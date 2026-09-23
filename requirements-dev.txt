@@ -1,0 +1,5 @@
+# Everything the tests and the offline demo need. The code itself uses only the
+# standard library; sending a real digest also needs the Google client libraries.
+# pytest 9 needs Python 3.10 or later; 8.4 still installs on Python 3.9, which is
+# the python3 that ships with macOS.
+pytest>=8.4,<10

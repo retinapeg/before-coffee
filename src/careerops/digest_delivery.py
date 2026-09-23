@@ -1,18 +1,21 @@
 """Deliver the digest to the reader's own mailbox, and to nowhere else.
 
-AGENTS.md says the app sends no email. That rule is about applications and recruiter
-contact, and the owner has decided explicitly that a digest to their own address is
-permitted. This module is built so that permission cannot quietly widen:
+AGENTS.md (not included in this repository) says the app sends no email. That rule is
+about applications and recruiter contact, and the owner has decided explicitly that a
+digest to their own address is permitted. This module is built so that permission
+cannot quietly widen:
 
 **The default recipient is the authenticated mailbox itself**, asked of Gmail at send
 time rather than configured. Sending anywhere else requires
-`digest.allow_other_recipient` to be set to true by hand. So "this app messages no
-third party" is enforced by the code path, not by a promise in a document - and the
-owner's address never has to be written down in the repository to make it work.
+`digest.allow_other_recipient` to be set to true by hand, and so does sending at all
+when Gmail cannot say whose mailbox it is. So "this app messages no third party" is
+enforced by the code path, not by a promise in a document - and the owner's address
+never has to be written down in the repository to make it work.
 
-**It cannot start a browser authorisation.** `build_gmail_service` falls back to an
-interactive consent flow when a token is unusable, which would hang unattended and
-would re-authorise without the owner knowing. Every precondition is therefore checked
+**It cannot start a browser authorisation.** The private system's
+`build_gmail_service` falls back to an interactive consent flow when a token is
+unusable (the stand-in in this repository never does), which would hang unattended
+and would re-authorise without the owner knowing. Every precondition is therefore checked
 first, and a token that cannot be refreshed non-interactively is an error that says
 what to do rather than a browser window nobody is sitting in front of.
 
@@ -26,7 +29,10 @@ from pathlib import Path
 
 from . import digest
 
-REQUIRED_SCOPES = ("https://www.googleapis.com/auth/gmail.send",)
+# gmail.send sends the digest. gmail.readonly lets users.getProfile report whose
+# mailbox this is, and deliver() refuses a real send without that answer.
+REQUIRED_SCOPES = ("https://www.googleapis.com/auth/gmail.readonly",
+                   "https://www.googleapis.com/auth/gmail.send")
 
 
 class DeliveryError(RuntimeError):
@@ -80,7 +86,7 @@ def mailbox_address(service) -> str:
         return ""
     try:
         profile = service.users().getProfile(userId="me").execute()
-    except Exception:  # noqa: BLE001 - fall back to configuration, never block a send
+    except Exception:  # noqa: BLE001 - "" means unknown; deliver() refuses to send on it
         return ""
     return str((profile or {}).get("emailAddress") or "")
 
@@ -115,7 +121,7 @@ def gmail_service(*, path: Path | None = None, creds: Path | None = None):
             "nothing here will open a browser consent flow on your behalf.")
     from job_cv_agent.gmail_inbox import build_gmail_service
     try:
-        # Reached only with a refresh_token and the send scope present, so
+        # Reached only with a refresh_token and every required scope present, so
         # build_gmail_service takes its refresh branch and not its flow branch.
         return build_gmail_service(creds or credentials_path(), resolved)
     except Exception as error:  # noqa: BLE001 - surface the action, not a traceback
@@ -139,7 +145,8 @@ def deliver(store, data: dict, *, service=None, path: Path | None = None,
     client = service
     if client is None and not dry_run:
         client = gmail_service(path=path)
-    recipient = resolve_recipient(store, path=path, account=mailbox_address(client) or None)
+    reported = mailbox_address(client)
+    recipient = resolve_recipient(store, path=path, account=reported or None)
 
     if not job_ids:
         return {"sent": False, "reason": "nothing_qualified", "subject": subject,
@@ -147,6 +154,17 @@ def deliver(store, data: dict, *, service=None, path: Path | None = None,
     if dry_run:
         return {"sent": False, "reason": "dry_run", "subject": subject, "body": body,
                 "recipient": recipient, "jobs": len(job_ids), "counts": data["counts"]}
+
+    # Without Gmail's answer the self-only guard has nothing to compare against: the
+    # token file's `account` is often empty, and resolve_recipient then accepts any
+    # configured address. So a real send needs the live answer, or the deliberate
+    # switch that permits another recipient.
+    if not reported and not digest.settings(store)["allow_other_recipient"]:
+        raise DeliveryError(
+            "Gmail did not report which mailbox this is, so the digest recipient "
+            "cannot be checked against it. Nothing was sent. Check the connection and "
+            "the token, or set settings['digest']['allow_other_recipient'] to true "
+            "if sending to the configured address is intended.")
 
     message = digest.build_message(data, recipient)
     from job_cv_agent.email_delivery import send_job_email
