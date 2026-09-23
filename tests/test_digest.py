@@ -285,6 +285,41 @@ def test_a_send_records_exactly_what_went_out(tmp_path, monkeypatch):
     assert digest.select(store, now=NOW + timedelta(hours=1))["counts"]["selected"] == 0
 
 
+def test_nothing_is_sent_when_gmail_cannot_say_whose_mailbox_it_is(tmp_path, monkeypatch):
+    """The self-only guard must not fail open. If the profile lookup fails and the
+    token file records no account, there is nothing to check the configured address
+    against, so a send to someone else has to be refused rather than let through."""
+    store = _store(tmp_path, [{}], settings={"to": "someone.else@example.invalid"})
+    sent = []
+    monkeypatch.setattr("job_cv_agent.email_delivery.send_job_email",
+                        lambda service, message: sent.append(message["To"]) or "gmail-id-1")
+
+    class ProfileUnavailable:
+        def users(self):
+            raise RuntimeError("profile lookup failed")
+
+    data = digest.select(store, now=NOW)
+    with pytest.raises(digest_delivery.DeliveryError, match="did not report which mailbox"):
+        digest_delivery.deliver(store, data, service=ProfileUnavailable(),
+                                path=tmp_path / "no-token.json", now=NOW)
+    assert sent == []
+    assert digest.ledger(store)["sends"] == 0
+
+
+def test_the_deliberate_switch_still_permits_a_send_gmail_cannot_confirm(tmp_path, monkeypatch):
+    store = _store(tmp_path, [{}], settings={"to": "someone.else@example.invalid",
+                                             "allow_other_recipient": True})
+    sent = []
+    monkeypatch.setattr("job_cv_agent.email_delivery.send_job_email",
+                        lambda service, message: sent.append(message["To"]) or "gmail-id-1")
+    monkeypatch.setattr(digest_delivery, "mailbox_address", lambda service: "")
+    data = digest.select(store, now=NOW)
+    result = digest_delivery.deliver(store, data, service=object(),
+                                     path=tmp_path / "no-token.json", now=NOW)
+    assert result["sent"] is True
+    assert sent == ["someone.else@example.invalid"]
+
+
 def test_the_message_carries_no_attachment_and_no_html(tmp_path):
     store = _store(tmp_path, [{}])
     message = digest.build_message(digest.select(store, now=NOW), "owner@example.invalid")

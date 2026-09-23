@@ -80,7 +80,7 @@ def mailbox_address(service) -> str:
         return ""
     try:
         profile = service.users().getProfile(userId="me").execute()
-    except Exception:  # noqa: BLE001 - fall back to configuration, never block a send
+    except Exception:  # noqa: BLE001 - "" means unknown; deliver() refuses to send on it
         return ""
     return str((profile or {}).get("emailAddress") or "")
 
@@ -139,7 +139,8 @@ def deliver(store, data: dict, *, service=None, path: Path | None = None,
     client = service
     if client is None and not dry_run:
         client = gmail_service(path=path)
-    recipient = resolve_recipient(store, path=path, account=mailbox_address(client) or None)
+    reported = mailbox_address(client)
+    recipient = resolve_recipient(store, path=path, account=reported or None)
 
     if not job_ids:
         return {"sent": False, "reason": "nothing_qualified", "subject": subject,
@@ -147,6 +148,17 @@ def deliver(store, data: dict, *, service=None, path: Path | None = None,
     if dry_run:
         return {"sent": False, "reason": "dry_run", "subject": subject, "body": body,
                 "recipient": recipient, "jobs": len(job_ids), "counts": data["counts"]}
+
+    # Without Gmail's answer the self-only guard has nothing to compare against: the
+    # token file's `account` is often empty, and resolve_recipient then accepts any
+    # configured address. So a real send needs the live answer, or the deliberate
+    # switch that permits another recipient.
+    if not reported and not digest.settings(store)["allow_other_recipient"]:
+        raise DeliveryError(
+            "Gmail did not report which mailbox this is, so the digest recipient "
+            "cannot be checked against it. Nothing was sent. Check the connection and "
+            "the token, or set settings['digest']['allow_other_recipient'] to true "
+            "if sending to the configured address is intended.")
 
     message = digest.build_message(data, recipient)
     from job_cv_agent.email_delivery import send_job_email
