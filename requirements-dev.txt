@@ -1,0 +1,3 @@
+# Everything the tests and the offline demo need. The code itself uses only the
+# standard library; sending a real digest also needs the Google client libraries.
+pytest==9.1.1
