@@ -1,74 +1,90 @@
-$ PYTHONPATH=src python3 -m pytest -v --tb=line -rN tests/test_refresh_and_signals.py
+$ python -m pytest -v
 ============================= test session starts ==============================
-platform darwin -- Python 3.11.5, pytest-9.1.1, pluggy-1.6.0 -- /Library/Frameworks/Python.framework/Versions/3.11/bin/python3
+platform darwin -- Python 3.11.5, pytest-9.1.1, pluggy-1.6.0 -- .venv/bin/python
 cachedir: .pytest_cache
 rootdir: .
-plugins: anyio-4.14.2
-collecting ... collected 37 items
+configfile: pytest.ini
+testpaths: tests
+collecting ... collected 79 items
 
-tests/test_refresh_and_signals.py::test_evaluating_signals_cannot_change_what_is_stored PASSED [  2%]
-tests/test_refresh_and_signals.py::test_an_aggregator_job_is_still_evaluated_and_returned_just_not_flagged PASSED [  5%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[ashby] PASSED [  8%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[greenhouse] PASSED [ 10%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[lever] PASSED [ 13%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[recruitee] PASSED [ 16%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[smartrecruiters] PASSED [ 18%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[teamtailor] PASSED [ 21%]
-tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[workday] PASSED [ 24%]
-tests/test_refresh_and_signals.py::test_an_unrecorded_source_is_neither_ats_nor_aggregator PASSED [ 27%]
-tests/test_refresh_and_signals.py::test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh PASSED [ 29%]
-tests/test_refresh_and_signals.py::test_first_seen_is_never_used_as_a_posting_date PASSED [ 32%]
-tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[0.5-True] PASSED [ 35%]
-tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[23-True] PASSED [ 37%]
-tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[24-True] PASSED [ 40%]
-tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[25-False] PASSED [ 43%]
-tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[200-False] PASSED [ 45%]
-tests/test_refresh_and_signals.py::test_a_posting_date_in_the_future_is_not_fresh PASSED [ 48%]
-tests/test_refresh_and_signals.py::test_a_title_made_of_terms_you_already_search_for_is_not_adjacent PASSED [ 51%]
-tests/test_refresh_and_signals.py::test_a_title_outside_your_searches_that_still_fits_is_adjacent PASSED [ 54%]
-tests/test_refresh_and_signals.py::test_a_role_the_evidence_does_not_support_is_not_adjacent_however_unusual PASSED [ 56%]
-tests/test_refresh_and_signals.py::test_seniority_words_do_not_make_a_title_look_unfamiliar PASSED [ 59%]
-tests/test_refresh_and_signals.py::test_an_alert_needs_all_three_signals PASSED [ 62%]
-tests/test_refresh_and_signals.py::test_summarise_counts_each_signal_independently PASSED [ 64%]
-tests/test_refresh_and_signals.py::test_the_background_poll_is_off_until_deliberately_enabled FAILED [ 67%]
-tests/test_refresh_and_signals.py::test_intervals_are_clamped_to_the_supported_range FAILED [ 70%]
-tests/test_refresh_and_signals.py::test_scope_alternates_and_survives_a_restart FAILED [ 72%]
-tests/test_refresh_and_signals.py::test_a_poll_is_due_immediately_on_first_enable_then_waits FAILED [ 75%]
-tests/test_refresh_and_signals.py::test_a_manual_search_is_never_interrupted_by_the_poll FAILED [ 78%]
-tests/test_refresh_and_signals.py::test_a_scheduled_run_can_only_widen_coverage_never_narrow FAILED [ 81%]
-tests/test_refresh_and_signals.py::test_the_budget_grows_along_the_chain_or_a_resumed_run_does_no_work FAILED [ 83%]
-tests/test_refresh_and_signals.py::test_a_run_with_queue_left_is_continued_and_a_drained_one_is_not FAILED [ 86%]
-tests/test_refresh_and_signals.py::test_a_completed_run_is_never_resumed FAILED [ 89%]
-tests/test_refresh_and_signals.py::test_the_chain_is_bounded_so_it_eventually_re_seeds_the_registry FAILED [ 91%]
-tests/test_refresh_and_signals.py::test_a_dead_worker_does_not_block_the_poll_forever FAILED [ 94%]
-tests/test_refresh_and_signals.py::test_a_live_search_is_still_never_interrupted FAILED [ 97%]
-tests/test_refresh_and_signals.py::test_an_unknown_run_id_is_left_alone FAILED [100%]
+tests/test_digest.py::test_a_job_with_no_posting_date_is_listed_and_labelled_not_guessed PASSED [  1%]
+tests/test_digest.py::test_first_seen_being_recent_never_makes_a_job_look_freshly_posted PASSED [  2%]
+tests/test_digest.py::test_the_age_shown_comes_from_the_employers_date PASSED [  3%]
+tests/test_digest.py::test_the_cap_holds_and_the_remainder_is_reported_not_dropped_silently PASSED [  5%]
+tests/test_digest.py::test_every_selected_job_appears_under_exactly_one_heading PASSED [  6%]
+tests/test_digest.py::test_a_job_already_sent_is_not_sent_again PASSED   [  7%]
+tests/test_digest.py::test_a_role_held_back_by_the_cap_arrives_in_the_next_digest PASSED [  8%]
+tests/test_digest.py::test_resending_deliberately_overrides_the_ledger PASSED [ 10%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\d+\\s?%] PASSED [ 11%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\bmatch score\\b] PASSED [ 12%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\bodds\\b] PASSED [ 13%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\b\\d+/10\\b] PASSED [ 15%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\bconfidence: \\d] PASSED [ 16%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\bscore\\b\\s*[:=]] PASSED [ 17%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\b(?:strong|good|high) chance\\b] PASSED [ 18%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\byou (?:will|should) (?:hear|get|expect)\\b] PASSED [ 20%]
+tests/test_digest.py::test_the_email_never_predicts_or_scores[\\bshortlist(?:ed|ing)? (?:odds|chance)] PASSED [ 21%]
+tests/test_digest.py::test_the_email_states_plainly_that_it_predicts_nothing PASSED [ 22%]
+tests/test_digest.py::test_an_empty_digest_says_why_and_still_predicts_nothing PASSED [ 24%]
+tests/test_digest.py::test_a_hostile_job_title_cannot_break_out_of_the_email PASSED [ 25%]
+tests/test_digest.py::test_a_salary_parse_artefact_is_reported_as_unpublished PASSED [ 26%]
+tests/test_digest.py::test_a_real_salary_range_is_shown PASSED           [ 27%]
+tests/test_digest.py::test_a_role_outside_every_configured_location_is_not_offered PASSED [ 29%]
+tests/test_digest.py::test_every_considered_role_is_accounted_for_in_the_counts PASSED [ 30%]
+tests/test_digest.py::test_the_location_gate_can_be_turned_off PASSED    [ 31%]
+tests/test_digest.py::test_the_digest_refuses_a_recipient_that_is_not_the_authenticated_mailbox PASSED [ 32%]
+tests/test_digest.py::test_sending_elsewhere_is_possible_only_when_deliberately_enabled PASSED [ 34%]
+tests/test_digest.py::test_the_authenticated_mailbox_is_the_default_with_no_address_configured PASSED [ 35%]
+tests/test_digest.py::test_an_unusable_token_is_an_error_and_never_a_browser_consent_flow PASSED [ 36%]
+tests/test_digest.py::test_nothing_is_sent_when_nothing_qualifies PASSED [ 37%]
+tests/test_digest.py::test_a_send_records_exactly_what_went_out PASSED   [ 39%]
+tests/test_digest.py::test_nothing_is_sent_when_gmail_cannot_say_whose_mailbox_it_is PASSED [ 40%]
+tests/test_digest.py::test_the_deliberate_switch_still_permits_a_send_gmail_cannot_confirm PASSED [ 41%]
+tests/test_digest.py::test_the_message_carries_no_attachment_and_no_html PASSED [ 43%]
+tests/test_digest.py::test_london_and_international_are_separate_sections_in_that_order PASSED [ 44%]
+tests/test_digest.py::test_the_reason_a_job_qualified_is_still_printed_under_the_new_sections PASSED [ 45%]
+tests/test_offline_demo.py::test_the_demo_says_it_is_synthetic_before_and_after PASSED [ 46%]
+tests/test_offline_demo.py::test_the_demo_prints_the_census_and_both_digest_sections PASSED [ 48%]
+tests/test_offline_demo.py::test_every_employer_and_link_in_the_demo_is_invented PASSED [ 49%]
+tests/test_offline_demo.py::test_the_demo_counts_line_accounts_for_every_role PASSED [ 50%]
+tests/test_offline_demo.py::test_the_demo_refuses_to_overwrite_an_existing_store PASSED [ 51%]
+tests/test_offline_demo.py::test_the_demo_runs_as_a_plain_command PASSED [ 53%]
+tests/test_refresh_and_signals.py::test_evaluating_signals_cannot_change_what_is_stored PASSED [ 54%]
+tests/test_refresh_and_signals.py::test_an_aggregator_job_is_still_evaluated_and_returned_just_not_flagged PASSED [ 55%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[ashby] PASSED [ 56%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[greenhouse] PASSED [ 58%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[lever] PASSED [ 59%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[recruitee] PASSED [ 60%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[smartrecruiters] PASSED [ 62%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[teamtailor] PASSED [ 63%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[workday] PASSED [ 64%]
+tests/test_refresh_and_signals.py::test_an_unrecorded_source_is_neither_ats_nor_aggregator PASSED [ 65%]
+tests/test_refresh_and_signals.py::test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh PASSED [ 67%]
+tests/test_refresh_and_signals.py::test_first_seen_is_never_used_as_a_posting_date PASSED [ 68%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[0.5-True] PASSED [ 69%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[23-True] PASSED [ 70%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[24-True] PASSED [ 72%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[25-False] PASSED [ 73%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[200-False] PASSED [ 74%]
+tests/test_refresh_and_signals.py::test_a_posting_date_in_the_future_is_not_fresh PASSED [ 75%]
+tests/test_refresh_and_signals.py::test_a_title_made_of_terms_you_already_search_for_is_not_adjacent PASSED [ 77%]
+tests/test_refresh_and_signals.py::test_a_title_outside_your_searches_that_still_fits_is_adjacent PASSED [ 78%]
+tests/test_refresh_and_signals.py::test_a_role_the_evidence_does_not_support_is_not_adjacent_however_unusual PASSED [ 79%]
+tests/test_refresh_and_signals.py::test_seniority_words_do_not_make_a_title_look_unfamiliar PASSED [ 81%]
+tests/test_refresh_and_signals.py::test_an_alert_needs_all_three_signals PASSED [ 82%]
+tests/test_refresh_and_signals.py::test_summarise_counts_each_signal_independently PASSED [ 83%]
+tests/test_refresh_and_signals.py::test_the_background_poll_is_off_until_deliberately_enabled PASSED [ 84%]
+tests/test_refresh_and_signals.py::test_intervals_are_clamped_to_the_supported_range PASSED [ 86%]
+tests/test_refresh_and_signals.py::test_scope_alternates_and_survives_a_restart PASSED [ 87%]
+tests/test_refresh_and_signals.py::test_a_poll_is_due_immediately_on_first_enable_then_waits PASSED [ 88%]
+tests/test_refresh_and_signals.py::test_a_manual_search_is_never_interrupted_by_the_poll PASSED [ 89%]
+tests/test_refresh_and_signals.py::test_a_scheduled_run_can_only_widen_coverage_never_narrow PASSED [ 91%]
+tests/test_refresh_and_signals.py::test_the_budget_grows_along_the_chain_or_a_resumed_run_does_no_work PASSED [ 92%]
+tests/test_refresh_and_signals.py::test_a_run_with_queue_left_is_continued_and_a_drained_one_is_not PASSED [ 93%]
+tests/test_refresh_and_signals.py::test_a_completed_run_is_never_resumed PASSED [ 94%]
+tests/test_refresh_and_signals.py::test_the_chain_is_bounded_so_it_eventually_re_seeds_the_registry PASSED [ 96%]
+tests/test_refresh_and_signals.py::test_a_dead_worker_does_not_block_the_poll_forever PASSED [ 97%]
+tests/test_refresh_and_signals.py::test_a_live_search_is_still_never_interrupted PASSED [ 98%]
+tests/test_refresh_and_signals.py::test_an_unknown_run_id_is_left_alone PASSED [100%]
 
-=================================== FAILURES ===================================
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:143: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:150: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:162: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:174: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:188: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:289: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:313: ModuleNotFoundError: No module named 'careerops.store'
-E   ModuleNotFoundError: No module named 'careerops.store'
-./tests/test_refresh_and_signals.py:332: ModuleNotFoundError: No module named 'careerops.store'
-======================== 13 failed, 24 passed in 0.07s =========================
+============================== 79 passed in 0.35s ==============================
