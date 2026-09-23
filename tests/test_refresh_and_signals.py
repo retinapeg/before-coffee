@@ -61,7 +61,7 @@ def test_an_unrecorded_source_is_neither_ats_nor_aggregator():
     assert marks["source"]["kind"] == "unknown" and marks["source"]["hit"] is False
 
 
-# --- FRESH: the signal the project rules constrain most tightly ---------------------------
+# --- FRESH: the signal AGENTS.md (not included in this repository) constrains most tightly ---
 
 def test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh():
     marks = signals.evaluate(job(posted_at=None), SETTINGS, now=NOW, searched=set())
@@ -69,8 +69,8 @@ def test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh():
 
 
 def test_first_seen_is_never_used_as_a_posting_date():
-    """Project rule: "First seen is never a posting date." A job discovered seconds ago
-    with no published posting date must not become fresh."""
+    """AGENTS.md (not included in this repository): "First seen is never a posting date."
+    A job discovered seconds ago with no published posting date must not become fresh."""
     recent = job(posted_at=None, first_seen=NOW.isoformat(), discovered_at=NOW.isoformat())
     assert signals.evaluate(recent, SETTINGS, now=NOW, searched=set())["fresh"]["hit"] is False
 

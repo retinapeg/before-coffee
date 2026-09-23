@@ -102,8 +102,9 @@ def evaluate(job: dict, settings: dict, *, now: datetime | None = None,
 
     posted = _parse(job.get("posted_at"))
     age_hours = (now - posted).total_seconds() / 3600 if posted else None
-    # Absent posting date is unknown age, never new. A standing project rule: "First
-    # seen is never a posting date." first_seen is deliberately not consulted here at all.
+    # Absent posting date is unknown age, never new. AGENTS.md (not included in this
+    # repository): "First seen is never a posting date." first_seen is deliberately not
+    # consulted here at all.
     fresh_hit = age_hours is not None and 0 <= age_hours <= fresh_hours
 
     title_words = _words(job.get("title"))

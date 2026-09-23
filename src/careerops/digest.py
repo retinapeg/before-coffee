@@ -22,8 +22,8 @@ next digest". The ledger of sent job ids excludes exactly what has been shown an
 nothing more, which is what "since the last digest" was reaching for. The floor is
 gone; the ledger is the only gate.
 
-**Age comes only from `posted_at`.** A standing project rule: "First seen is never a
-posting date."
+**Age comes only from `posted_at`.** AGENTS.md (not included in this repository):
+"First seen is never a posting date."
 `first_seen` decides what is NEW TO US and nothing else. A job whose employer
 published no date is listed and labelled "posting date not published" rather than
 being quietly treated as new.

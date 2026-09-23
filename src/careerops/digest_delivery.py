@@ -1,9 +1,9 @@
 """Deliver the digest to the reader's own mailbox, and to nowhere else.
 
-The wider project's rule is that the app sends no email. That rule is about
-applications and recruiter contact, and the owner has decided explicitly that a digest
-to their own address is permitted. This module is built so that permission cannot
-quietly widen:
+AGENTS.md (not included in this repository) says the app sends no email. That rule is
+about applications and recruiter contact, and the owner has decided explicitly that a
+digest to their own address is permitted. This module is built so that permission
+cannot quietly widen:
 
 **The default recipient is the authenticated mailbox itself**, asked of Gmail at send
 time rather than configured. Sending anywhere else requires
