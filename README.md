@@ -1,216 +1,224 @@
 # Before Coffee
 
-A daily email of jobs you would otherwise miss. It collects vacancies from employer job
-boards around the clock, picks the ones that fit using fixed rules you can inspect, and
-sends a single plain-text email at 07:00.
+**Explainable selection with deterministic signals, and a measured decision about when not
+to use machine learning.** Each morning the system picks a short list from a pool of
+items, orders it, and attaches a plain reason to every item: why it was chosen. Nothing
+in the selection is learned, and that is deliberate. The centrepiece of this repository
+is the analysis behind that choice: a contextual bandit was specified, the data it would
+learn from was measured, and the model was not built, because the data could not support
+an honest evaluation. The worked example is job vacancies: a daily plain-text digest,
+sent at 07:00 to its owner's own mailbox, of roles collected from employer
+applicant-tracking boards.
 
-The email is the least interesting part. What this repository is really about is the
-decisions behind it: a model I specified and then chose not to build once I'd measured
-the data, and three failures that no dashboard would have caught.
+- **Runs offline:** 79 tests and a synthetic demo on a clean clone, with nothing but
+  `pytest` installed. See [Run it offline](#run-it-offline).
+- **The decision record:** [Why there is no bandit yet](#why-there-is-no-bandit-yet).
 
-![Terminal output of pytest on tests/test_refresh_and_signals.py: the 24 selection-signal tests pass and the 13 scheduler tests fail with ModuleNotFoundError for careerops.store](docs/images/signals-tests.png)
-
-*A real offline run of this repository's own tests on invented data: the 24 signal tests pass, and the 13 scheduler tests fail on `import careerops.store`, which isn't in this extract ([raw output](docs/images/signals-tests.txt)).*
-
-## System architecture
-
-![Architecture of Before Coffee: an opt-in hourly refresh loop starts or resumes the private collector, which writes vacancies from public job sources into a SQLite store; at 07:00 digest_cli selects roles with fixed rules and three signals, then renders a plain-text email and sends it through Gmail to the owner's own inbox, recording the sent ids in the store](docs/images/architecture.svg)
+![Architecture of Before Coffee: an opt-in hourly refresh loop starts or resumes the private collector, which writes vacancies into a SQLite store; at 07:00 digest_cli selects roles with fixed rules, a location classifier and three signals, then renders a plain-text email and sends it through Gmail to the owner's own inbox, recording the sent ids; stand-ins and the offline demo are shown dashed](docs/images/architecture.svg)
 
 *Purple: model call · blue: deterministic code · green: human · amber: evaluation · grey: storage · dashed: external, optional, mocked or planned*
 
-While the web app is open and the poll is enabled (it is off by default), `RefreshLoop` in `refresh.py` asks it for a collection run once an hour, resuming the previous run's checkpoint while its queue has work, and the collector writes new vacancies into a SQLite store. At 07:00 a launchd job runs `digest_cli`, where `digest.select` skips roles in the sent ledger, keeps those with a strong or plausible fit band in a configured location, tags each with the three signals from `signals.py` and caps the list at 25. `digest_delivery` then sends one plain-text email to the mailbox Gmail reports as authenticated and records the sent IDs. The boxes marked "not in repo" and the location classifier (`inventory.classify_job`) live in the private system (see [What is and isn't here](#what-is-and-isnt-here)).
+## Where AI sits, and where it does not
 
-## Does it use AI at runtime?
+No code in this repository calls a model. Selection is a filter followed by a fixed
+order. Each item carries a reason from three deterministic signals ([How selection
+works](#how-selection-works)). The fit band that the filter reads is computed upstream by
+the private system and is only read here.
 
-No: nothing in this code calls a model, selection uses fixed rules and three deterministic signals (see [How selection works](#how-selection-works)), and the contextual bandit from finding 1 was measured and deliberately not built. The fit band that selection filters on is read from the store, and the private code that computes it isn't in this repository.
+The machine-learning work is the decision in the next section: a model-iteration choice
+made from measured data, including the choice not to fit anything yet.
 
----
+## Why there is no bandit yet
 
-## What it does
+**The question.** Should the digest learn from how its reader responds, using a
+contextual bandit that chooses which items to show?
 
-- **Collects** vacancies every hour from employer applicant-tracking boards (Greenhouse,
-  Lever, Ashby) and other public sources.
-- **Selects** roles that match the candidate's recorded evidence and configured locations.
-- **Sends** one email: a **London** section, then an **International** section, with each
-  role followed by the reason it was picked.
-- **Never** shows a match percentage, never claims to know your chances of an interview,
-  and contains no tracking pixel, link shortener or redirect.
+**What was measured.** These figures come from the private job store on 21 September
+2026, which is not published, so they cannot be reproduced from this repository.
 
----
+- **The labels are positive-unlabelled.** There were 215 historical positives (roles
+  marked "saved") and **zero** explicit negatives. The other ~2,600 roles are unlabelled,
+  not rejected. Treating them as negatives would bias a model towards whatever the old
+  interface happened to show.
+- **The history cannot be evaluated off-policy.** Those saves were collected under a
+  policy that never recorded propensities, so no inverse-propensity estimate built on
+  them is honest.
+- **A reward read from job status would have been confounded by source.** This is the
+  number that settled it:
 
-## Decisions and findings
+  | Source of role | Qualifying | Already acted on |
+  |---|---:|---:|
+  | Legacy import | 80 | 77 (**96%**) |
+  | Live employer boards | 258 | 4 (**2%**) |
 
-### 1. I specified a contextual bandit, measured the data, and decided not to build it yet
+  A learner rewarded on status would have latched onto a stale legacy import and written
+  off live listings, and every offline metric would have said it was improving.
+- **There is almost nothing to allocate.** On the one full night measured, 18 new roles
+  qualified against a daily cap of 25. Once the backlog clears, every qualifying role goes
+  out the day it arrives, so a bandit would be choosing from a single option.
 
-The plan was to learn from how the reader responds to each digest. Before writing a
-learner, I measured what it would actually be learning from.
+**The decision.** Fit nothing yet. First build the measurement layer:
 
-**The labels are positive-unlabelled.** There were 215 historical positives (roles marked
-"saved") and **zero** explicit negatives. The other ~2,600 roles are *unlabelled*, not
-rejected. Treating them as negatives biases the model towards whatever the old interface
-happened to show.
+- log every impression with its propensity, and with its features *as they were at send
+  time*;
+- collect labels from replies to the digest, so no tracking is needed;
+- keep a fixed control policy for comparison, so it is possible to tell whether learning
+  helps at all.
 
-**The history can't be evaluated off-policy.** Those saves were collected under a policy
-that never recorded propensities, so no inverse-propensity estimate built on them is
-honest.
+**What would change it.** Two conditions together: labels that come from the digest
+itself rather than a legacy import, and a daily cap that actually binds, so that there is
+a choice to learn. Neither holds yet, and the measurement layer is not built yet.
 
-**A status-based reward would have been contaminated by source.** This is the number
-that settled it:
+## Run it offline
 
-| Source of role | Qualifying | Already acted on |
-|---|---:|---:|
-| Legacy import | 80 | 77 (**96%**) |
-| Live employer boards | 258 | 4 (**2%**) |
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pytest
+python scripts/demo.py
+```
 
-A learner rewarded on job status would have latched onto a stale legacy import within a
-week and written off live listings. Every offline metric would have said it was
-improving the whole time.
+The tests need only `pytest`, and the demo needs only the standard library. The demo seeds
+a temporary store with invented vacancies, runs the real ingestion census, then runs the
+real digest selection and rendering as a dry run. It never contacts Gmail. Excerpt from a
+real run:
 
-**There is barely anything to allocate.** On the one full night I measured, 18 new roles
-qualified against a daily cap of 25. Once the backlog clears, every qualifying role ships
-the day it arrives, and a bandit ends up choosing from a single option.
+```
+SYNTHETIC DEMO - every employer, role and link below is invented. Nothing is sent and Gmail is not contacted.
 
-**So the measurement layer comes first:** log every impression with its propensity and
-its features *as they were at send time*; collect labels by replying to the digest, so no
-tracking is needed; and hold out a fixed control policy so it's possible to tell whether
-learning helps at all. Nothing gets fitted until there are enough labels to evaluate it
-honestly.
+considered 7 | qualifying 5 | selected 5 | held back 0 | in an earlier digest 0 | below the criteria 1 | outside configured locations 1
 
-### 2. A collection bug that every metric reported as healthy
+LONDON
+------
 
-The hourly collector restarted from scratch on each run. Because the order it visited
-boards in never changed, every run hit its time limit in the same place:
+  Data Engineer
+    Example Grid Ltd (synthetic)  |  London, United Kingdom
+    Salary: GBP 55,000 to 65,000
+    posted 3 hours ago
+    Why: Meets your criteria and the employer published it in the last 24 hours.
+    https://jobs.example.invalid/1
 
-- a fresh run reached **5 of 62** employer boards before stopping at 180 seconds, and
-  dropped a queue of 256 more;
-- two separate London runs contacted **exactly the same eight hosts** with identical
-  per-host counts, and the second stored **zero** new roles;
-- one ATS provider was never contacted at all, and another got a single request across
-  24 boards.
-
-The store never shrank, so every count looked fine while most of the reachable inflow had
-quietly stopped arriving. I found it by comparing per-host request counts across runs,
-not from a dashboard.
-
-**The fix** was to resume each run from the previous checkpoint. That needed two further
-changes. A resumed run starts with its elapsed time already charged against the budget,
-so its budget has to grow as the chain goes on (`consumed + slice`). And every coverage
-limit is written with `max()` against what's already configured, so a scheduled run can
-widen coverage but never narrow it. A test asserts that.
-
-After the fix, new roles per run went from **0** to 517, 843 and 1,154, and the pool grew
-from 1,638 to more than 3,000 roles.
-
-### 3. A cleanup step that never ran
-
-After a crash, the collector stopped polling for **55 minutes**, even though its own
-"is a poll due?" check kept answering yes.
-
-The worker cleared its "search running" flag in a `finally` block, but the *first*
-statement in that block raised `database is locked`. That aborted the rest of the
-`finally`, the flag was never cleared, and every later poll decided a search was still
-running and backed off.
-
-The loop now clears flags whose stored run status is already terminal. It only discards
-a flag when that status is *positively* terminal. If a run is unknown, or the store can't
-be read, the flag stays put, because skipping a poll for an hour does far less harm than
-two searches running over one database. The regression test was checked to **fail**
-without the fix before I kept it.
-
-### 4. Scores that rewrite themselves
-
-Opening the job store recalculates and rewrites every role's fit score. So a score read
-today is not the score the reader saw last week. Any impression log therefore has to
-store features as they were at send time rather than pointing back at the store. This is
-also why the log will be an append-only file and not a database table.
-
-A related trap: opening the store also takes a SQLite *write* lock. Switching to WAL
-stopped readers from blocking the collector, but it doesn't stop one writer blocking
-another. Inspection tools use read-only connections for that reason.
-
-### 5. A filter that would have quietly lost data
-
-The first design selected "roles first seen since the last digest". With a daily cap,
-that loses data: roles held back by the cap were first seen *before* the digest that
-couldn't fit them, so the next digest's time filter dropped them for good. Meanwhile the
-email promised they would "appear in the next digest".
-
-A ledger of the IDs already sent replaced the time filter. It excludes exactly what's
-been shown and nothing else, and a test checks that a held-back role turns up the next
-day even when nothing new has been collected.
-
-### 6. A permission that cannot widen itself
-
-This system sends exactly one kind of message: a digest to its owner's own mailbox. That
-rule is enforced in code, not just stated in a document:
-
-- The recipient defaults to the **authenticated mailbox itself**, which it gets from the
-  Gmail profile at send time rather than from configuration.
-- Sending to any other address raises an error unless that has been explicitly enabled.
-- It **cannot start a browser consent flow on its own**. An unusable token produces an
-  error that tells the owner what to do, instead of an unattended hang at 07:00.
-- No attachments, no tracking, and an empty digest is simply not sent.
-
----
+  Carbon Accounting Analyst
+    Sample Ledger Co (synthetic)  |  London
+    Salary: not published
+    posted 30 hours ago
+    Why: Meets your criteria, and the title is not one your configured searches look for.
+    https://jobs.example.invalid/2
+```
 
 ## How selection works
 
-There's no model in the selection path. Each role gets three deterministic signals, and
-each email line comes with the reason that applied:
+1. Skip anything in the ledger of items already sent.
+2. Keep items whose fit band is strong or plausible and whose location is London or a
+   configured country.
+3. Order by the employer's own posting date, newest first; items without one come last.
+4. Take the first 25. Anything held back stays eligible for the next digest.
+5. Print two sections, **London** then **International**, with a reason under every item.
+
+Each item's reason comes from three deterministic signals:
 
 | Signal | Fires when |
 |---|---|
-| **Source** | the role is on the employer's own board rather than an aggregator |
+| **Source** | the item is on the employer's own board rather than an aggregator |
 | **Fresh** | the employer's own posting date falls inside the window |
-| **Adjacent** | the role meets the criteria, but its title isn't one the configured searches would have found |
+| **Adjacent** | the item meets the criteria, but its title is not one the configured searches would have found |
 
-*Adjacent* is what produces "a job you'd have missed". *Fresh* has turned out to be
-almost unused: fewer than half the qualifying roles carry a posting date at all, and the
-date a role was first *seen* is never treated as a posting date.
+*Adjacent* is what produces "a role you would otherwise have missed". The date an item
+was first *seen* is never treated as its posting date. On the private store, fewer than
+half the qualifying roles carried a posting date at all, so *Fresh* rarely fires.
 
----
+The email never shows a percentage, a score or a claim about anyone's chances, and it
+contains no tracking pixel. Links are printed exactly as the source published them.
 
-## Tests
+## What the tests check
 
-70 tests, all using invented data. Tests written against real personal data end up being
-tests about a person, and they would leak that data into the repository.
+The 79 tests use invented data only. Tests written against real personal data end up
+being tests about a person, and they would leak that data into the repository. They check
+properties rather than examples:
 
-The tests cover properties rather than examples:
+- the email never contains a percentage, a score or a claim about someone's chances;
+- a hostile item title cannot inject headers or control characters;
+- a real send goes only to the mailbox Gmail confirms as authenticated, unless another
+  recipient has been explicitly enabled;
+- an unusable token raises an error and never opens a browser consent flow;
+- an item held back by the cap turns up in the next digest;
+- a scheduled collection run can widen coverage but never narrow it;
+- a crashed worker cannot block polling forever, and a live run is never interrupted;
+- the demo runs end to end, its counts add up, and it opens no network connection.
 
-- the email never contains a percentage, a score, or a claim about someone's chances;
-- a hostile job title can't inject headers or control characters;
-- the digest refuses any recipient other than the authenticated mailbox unless that is
-  explicitly enabled;
-- an unusable token raises an error and never opens a consent flow;
-- a role held back by the cap turns up in the next digest;
-- a scheduled run can widen collection coverage but never narrow it;
-- a crashed worker can't block polling forever, and a live search is never interrupted.
+![Output of python -m pytest -v on a clean clone: all 79 tests pass, and their names read as the properties listed above](docs/images/signals-tests.png)
 
----
+*Rendered from the raw output of a real clean-clone run of `python -m pytest -v`
+([text](docs/images/signals-tests.txt)).*
+
+`scripts/digest_ingestion_census.py` counts what collection has stored and exits
+non-zero if any count falls between two snapshots.
+
+## Engineering findings
+
+These came up while the system ran on the private store. The figures are from that store
+and cannot be reproduced here.
+
+**A collection bug that every metric reported as healthy.** The hourly collector
+restarted from scratch on each run. Because it always visited boards in the same order,
+every run hit its time limit in the same place. It reached 5 of 62 employer boards before
+stopping at 180 seconds and dropped a queue of 256 more. Two London runs contacted exactly
+the same eight hosts, and the second stored zero new roles. Stored counts never fell, so
+nothing looked wrong. The fix resumes each run from the previous checkpoint. Because a
+resumed run inherits its elapsed time, its budget grows along the chain as
+`consumed + slice`, and every limit is written with `max()` so a scheduled run can widen
+coverage but never narrow it. After the fix, new roles per run went from 0 to 517, 843 and
+1,154.
+
+**A clean-up step that never ran.** The collector stopped polling for 55 minutes while its
+own "is a poll due?" check kept answering yes. A worker cleared its "running" flag in a
+`finally` block whose first statement raised `database is locked`, so the flag was never
+cleared. The loop now clears only flags whose stored run status is positively terminal. An
+unknown run is left alone, because two runs over one database would do more harm than a
+missed poll.
+
+**Scores that rewrite themselves.** Opening the private job store recalculates every fit
+score. So a score read today is not the score the reader saw last week, and any impression
+log has to store features as they were at send time. The stand-in store in this
+repository deliberately does not rescore.
+
+**A filter that would have lost data.** Selecting "items first seen since the last
+digest" silently drops everything a daily cap held back, because those items were first
+seen before that digest. A ledger of sent IDs replaced the time filter.
+
+**A permission that could widen itself, found and closed.** A digest may go only to its
+owner's own mailbox. While this repository was being made to run offline, one path was
+found to fail open: if the Gmail profile lookup failed and the token file named no
+account, a configured address that was not the authenticated mailbox would receive the
+email. A real send now requires Gmail to confirm the mailbox, unless another recipient has
+been explicitly enabled. Regression tests cover both cases.
 
 ## What is and isn't here
 
-This code was extracted from a larger private system. The job store, the location
-classifier, the collector and two small Gmail helpers aren't included, because they're
-built around personal data. **So this repository is for reading, not for running:** the
-modules and tests are complete and documented, but they import code that isn't here.
+This code was extracted from a larger private system. The collector and the web app that
+starts it are not included. Where the digest depends on private modules, this repository
+carries **minimal stand-ins** so that everything here runs. Each stand-in says in its
+docstring how it differs from the private version.
 
 | Path | What it is |
 |---|---|
-| `src/careerops/digest.py` | selection, sectioning and the plain-text email |
+| `src/careerops/digest.py` | selection, ordering, sections and the plain-text email |
+| `src/careerops/signals.py` | the three signals |
 | `src/careerops/digest_delivery.py` | self-only delivery and the recipient guard |
 | `src/careerops/digest_cli.py` | the entry point the 07:00 schedule runs |
-| `src/careerops/signals.py` | the three selection signals |
-| `src/careerops/refresh.py` | the hourly collector loop, continuation chain and flag cleanup |
-| `scripts/digest_ingestion_census.py` | proves collection coverage never shrinks |
+| `src/careerops/refresh.py` | the hourly collection loop, continuation chain and flag clean-up |
+| `src/careerops/store.py` | stand-in: a minimal SQLite store with the same tables; it does not rescore on open |
+| `src/careerops/inventory.py` | stand-in: a location classifier that matches the word London and configured city names only |
+| `src/careerops/discovery.py` | stand-in: coverage limits and configured search queries |
+| `src/job_cv_agent/` | Gmail helpers: the send function, plus a token helper that refreshes and never starts a consent flow |
+| `scripts/demo.py` | the offline demo |
+| `scripts/digest_ingestion_census.py` | shows that collection coverage never shrinks |
 | `scripts/install_digest_schedule.sh` | installs the 07:00 job as a macOS LaunchAgent |
-| `scripts/reauthorise_gmail.py` | recovers Gmail access when a token dies |
-| `tests/` | the 70 tests described above |
-
----
+| `scripts/reauthorise_gmail.py` | restores Gmail access when a token has expired (needs the Google client libraries) |
 
 ## Status
 
-Running daily. Next up is the measurement layer from finding 1: impression and
-propensity logging, and reply-based labels. The learner comes after that, and only once
-the labels can support an honest evaluation.
+Running daily on the private store since 21 September 2026. Next is the measurement layer
+from the decision above: impression and propensity logging, and reply-based labels. A
+learner comes after that, and only once the labels can support an honest evaluation.
