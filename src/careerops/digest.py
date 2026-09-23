@@ -76,6 +76,9 @@ GROUPS = (
 )
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+# Apply links carry long tracking parameters and a shortened one is a broken one. The
+# limit only bounds pathological input; control characters are removed either way.
+URL_LIMIT = 2048
 
 
 def _clean(value, limit: int = 200) -> str:
@@ -344,7 +347,7 @@ def render(data: dict) -> tuple[str, str]:
             lines.append(f"    Salary: {salary}" if salary else "    Salary: not published")
             lines.append(f"    {_age(job, now)}")
             lines.append(f"    Why: {_why(row)}")
-            lines.append(f"    {_clean(job.get('url'), 400) or 'no link recorded'}")
+            lines.append(f"    {_clean(job.get('url'), URL_LIMIT) or 'no link recorded'}")
             lines.append("")
         lines.append("")
 

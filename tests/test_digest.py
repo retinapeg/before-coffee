@@ -177,6 +177,25 @@ def test_a_hostile_job_title_cannot_break_out_of_the_email(tmp_path):
     assert "someone@evil.invalid" not in (message["To"] or "")
 
 
+def test_a_long_apply_link_is_printed_intact(tmp_path):
+    """Apply links with tracking parameters run to hundreds of characters. A link cut
+    short opens the wrong page or none, so length alone must never shorten it."""
+    url = "https://example.invalid/apply?" + "q=" + "a" * (1000 - len("https://example.invalid/apply?q="))
+    assert len(url) == 1000
+    store = _store(tmp_path, [{"url": url}])
+    data, body = _body(store)
+    assert "    " + url + "\n" in body + "\n"
+    message = digest.build_message(data, "owner@example.invalid")
+    assert url in message.get_content()
+
+
+def test_control_characters_are_still_removed_from_a_link(tmp_path):
+    store = _store(tmp_path, [{"url": "https://example.invalid/x\r\nBcc: someone@evil.invalid"}])
+    _, body = _body(store)
+    assert "\r" not in body
+    assert "https://example.invalid/x Bcc: someone@evil.invalid" in body
+
+
 def test_a_salary_parse_artefact_is_reported_as_unpublished(tmp_path):
     """The store holds records with a currency of "unknown" and a 20-to-20 annual
     range. Printed verbatim that became "unknown20 to 20 per annual"."""
