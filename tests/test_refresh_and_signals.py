@@ -20,7 +20,7 @@ NOW = datetime(2026, 9, 21, 6, 0, tzinfo=timezone.utc)
 SETTINGS = {"strategy": {}, "locations": {}}
 
 def job(**overrides):
-    base = {"id": 1, "title": "Quantitative Developer", "company": "Example",
+    base = {"id": 1, "title": "Logistics Planner", "company": "Example",
             "posted_at": (NOW - timedelta(hours=3)).isoformat(),
             "evaluation": {"candidacy": {"fit_band": "plausible"}}}
     return {**base, **overrides}
@@ -99,7 +99,7 @@ def test_a_title_made_of_terms_you_already_search_for_is_not_adjacent():
 
 def test_a_title_outside_your_searches_that_still_fits_is_adjacent():
     marks = signals.evaluate(job(title="Solutions Consultant"), SETTINGS, now=NOW,
-                             searched={"python", "quantitative"})
+                             searched={"logistics", "planner"})
     assert marks["adjacent"]["hit"] is True
 
 
