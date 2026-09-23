@@ -310,6 +310,20 @@ def test_an_unusable_token_is_an_error_and_never_a_browser_consent_flow(tmp_path
         digest_delivery.gmail_service(path=wrong_scope)
 
 
+def test_a_send_only_token_fails_preflight_for_the_missing_read_scope(tmp_path):
+    """A real send first asks Gmail whose mailbox this is (users.getProfile), which the
+    send scope alone does not allow. Such a token must be rejected before any client is
+    built, with the scope named, not refused later with a vaguer message."""
+    send_only = tmp_path / "send_only.json"
+    send_only.write_text(json.dumps({"token": "x", "refresh_token": "y",
+                                     "scopes": ["https://www.googleapis.com/auth/gmail.send"]}))
+    state = digest_delivery.token_state(send_only)
+    assert state["usable"] is False
+    assert state["reason"] == "missing scope: https://www.googleapis.com/auth/gmail.readonly"
+    with pytest.raises(digest_delivery.DeliveryError, match="missing scope"):
+        digest_delivery.gmail_service(path=send_only)
+
+
 def test_nothing_is_sent_when_nothing_qualifies(tmp_path):
     """A "nothing today" email every morning trains the reader to ignore the next one."""
     store = _store(tmp_path, [{"evaluation": {"candidacy": {"fit_band": "not_suitable"}}}])

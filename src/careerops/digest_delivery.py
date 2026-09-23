@@ -29,7 +29,10 @@ from pathlib import Path
 
 from . import digest
 
-REQUIRED_SCOPES = ("https://www.googleapis.com/auth/gmail.send",)
+# gmail.send sends the digest. gmail.readonly lets users.getProfile report whose
+# mailbox this is, and deliver() refuses a real send without that answer.
+REQUIRED_SCOPES = ("https://www.googleapis.com/auth/gmail.readonly",
+                   "https://www.googleapis.com/auth/gmail.send")
 
 
 class DeliveryError(RuntimeError):
@@ -118,7 +121,7 @@ def gmail_service(*, path: Path | None = None, creds: Path | None = None):
             "nothing here will open a browser consent flow on your behalf.")
     from job_cv_agent.gmail_inbox import build_gmail_service
     try:
-        # Reached only with a refresh_token and the send scope present, so
+        # Reached only with a refresh_token and every required scope present, so
         # build_gmail_service takes its refresh branch and not its flow branch.
         return build_gmail_service(creds or credentials_path(), resolved)
     except Exception as error:  # noqa: BLE001 - surface the action, not a traceback
