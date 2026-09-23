@@ -1,0 +1,74 @@
+$ PYTHONPATH=src python3 -m pytest -v --tb=line -rN tests/test_refresh_and_signals.py
+============================= test session starts ==============================
+platform darwin -- Python 3.11.5, pytest-9.1.1, pluggy-1.6.0 -- /Library/Frameworks/Python.framework/Versions/3.11/bin/python3
+cachedir: .pytest_cache
+rootdir: .
+plugins: anyio-4.14.2
+collecting ... collected 37 items
+
+tests/test_refresh_and_signals.py::test_evaluating_signals_cannot_change_what_is_stored PASSED [  2%]
+tests/test_refresh_and_signals.py::test_an_aggregator_job_is_still_evaluated_and_returned_just_not_flagged PASSED [  5%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[ashby] PASSED [  8%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[greenhouse] PASSED [ 10%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[lever] PASSED [ 13%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[recruitee] PASSED [ 16%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[smartrecruiters] PASSED [ 18%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[teamtailor] PASSED [ 21%]
+tests/test_refresh_and_signals.py::test_employer_boards_earn_the_source_signal[workday] PASSED [ 24%]
+tests/test_refresh_and_signals.py::test_an_unrecorded_source_is_neither_ats_nor_aggregator PASSED [ 27%]
+tests/test_refresh_and_signals.py::test_a_job_with_no_posting_date_is_unknown_age_and_never_fresh PASSED [ 29%]
+tests/test_refresh_and_signals.py::test_first_seen_is_never_used_as_a_posting_date PASSED [ 32%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[0.5-True] PASSED [ 35%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[23-True] PASSED [ 37%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[24-True] PASSED [ 40%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[25-False] PASSED [ 43%]
+tests/test_refresh_and_signals.py::test_the_freshness_window_is_the_configured_one[200-False] PASSED [ 45%]
+tests/test_refresh_and_signals.py::test_a_posting_date_in_the_future_is_not_fresh PASSED [ 48%]
+tests/test_refresh_and_signals.py::test_a_title_made_of_terms_you_already_search_for_is_not_adjacent PASSED [ 51%]
+tests/test_refresh_and_signals.py::test_a_title_outside_your_searches_that_still_fits_is_adjacent PASSED [ 54%]
+tests/test_refresh_and_signals.py::test_a_role_the_evidence_does_not_support_is_not_adjacent_however_unusual PASSED [ 56%]
+tests/test_refresh_and_signals.py::test_seniority_words_do_not_make_a_title_look_unfamiliar PASSED [ 59%]
+tests/test_refresh_and_signals.py::test_an_alert_needs_all_three_signals PASSED [ 62%]
+tests/test_refresh_and_signals.py::test_summarise_counts_each_signal_independently PASSED [ 64%]
+tests/test_refresh_and_signals.py::test_the_background_poll_is_off_until_deliberately_enabled FAILED [ 67%]
+tests/test_refresh_and_signals.py::test_intervals_are_clamped_to_the_supported_range FAILED [ 70%]
+tests/test_refresh_and_signals.py::test_scope_alternates_and_survives_a_restart FAILED [ 72%]
+tests/test_refresh_and_signals.py::test_a_poll_is_due_immediately_on_first_enable_then_waits FAILED [ 75%]
+tests/test_refresh_and_signals.py::test_a_manual_search_is_never_interrupted_by_the_poll FAILED [ 78%]
+tests/test_refresh_and_signals.py::test_a_scheduled_run_can_only_widen_coverage_never_narrow FAILED [ 81%]
+tests/test_refresh_and_signals.py::test_the_budget_grows_along_the_chain_or_a_resumed_run_does_no_work FAILED [ 83%]
+tests/test_refresh_and_signals.py::test_a_run_with_queue_left_is_continued_and_a_drained_one_is_not FAILED [ 86%]
+tests/test_refresh_and_signals.py::test_a_completed_run_is_never_resumed FAILED [ 89%]
+tests/test_refresh_and_signals.py::test_the_chain_is_bounded_so_it_eventually_re_seeds_the_registry FAILED [ 91%]
+tests/test_refresh_and_signals.py::test_a_dead_worker_does_not_block_the_poll_forever FAILED [ 94%]
+tests/test_refresh_and_signals.py::test_a_live_search_is_still_never_interrupted FAILED [ 97%]
+tests/test_refresh_and_signals.py::test_an_unknown_run_id_is_left_alone FAILED [100%]
+
+=================================== FAILURES ===================================
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:143: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:150: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:162: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:174: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:188: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:203: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:289: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:313: ModuleNotFoundError: No module named 'careerops.store'
+E   ModuleNotFoundError: No module named 'careerops.store'
+./tests/test_refresh_and_signals.py:332: ModuleNotFoundError: No module named 'careerops.store'
+======================== 13 failed, 24 passed in 0.07s =========================
