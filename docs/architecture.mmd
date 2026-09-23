@@ -1,0 +1,36 @@
+%% Architecture of before-coffee at commit 6fb1d46a205d4127ada1a03bbdea2d3c423a311e
+%% Sources: src/careerops/refresh.py, src/careerops/digest_cli.py, src/careerops/digest.py, src/careerops/signals.py, src/careerops/digest_delivery.py, scripts/install_digest_schedule.sh, scripts/reauthorise_gmail.py, scripts/digest_ingestion_census.py, tests/test_digest.py, tests/test_refresh_and_signals.py
+%% Render: npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/images/architecture.svg -b white
+flowchart TD
+    boards["Public job sources<br/>ATS boards, aggregators"]:::ext
+    loop["RefreshLoop, refresh.py<br/>hourly, when enabled"]:::det
+    collector["Web app + collector<br/>start_search (not in repo)"]:::ext
+    checks["70 tests, invented data<br/>+ ingestion census"]:::eval
+    store[("SQLite job store<br/>jobs, runs, sent ledger<br/>(store code not in repo)")]:::store
+    cli["digest_cli --send<br/>launchd, 07:00"]:::det
+    select["digest.select<br/>ledger, fit band,<br/>location, cap 25"]:::det
+    sig["signals.evaluate<br/>source, fresh, adjacent"]:::det
+    deliver["render + deliver<br/>plain text, self-only"]:::det
+    gmail["Gmail API send<br/>(helpers not in repo)"]:::ext
+    owner["Owner's own inbox<br/>reads and decides"]:::human
+
+    boards -->|"public pages"| collector
+    loop -->|"start or resume run"| collector
+    loop <-->|"run state, budgets"| store
+    collector -->|"new vacancies"| store
+    checks -.->|"census: read-only"| store
+    store -->|"jobs + fit band"| select
+    cli --> select
+    select -->|"per job"| sig
+    select -->|"up to 25 roles"| deliver
+    deliver -->|"record sent ids"| store
+    deliver --> gmail
+    gmail --> owner
+
+    classDef ai fill:#efe7fb,stroke:#6a4c93,stroke-width:2px,color:#2b1d45;
+    classDef det fill:#eef3f8,stroke:#2f5d8a,stroke-width:1.5px,color:#172c37;
+    classDef human fill:#e8f0ec,stroke:#285b48,stroke-width:1.5px,color:#173f32;
+    classDef eval fill:#f7efdf,stroke:#8b6330,stroke-width:1.5px,color:#4a3413;
+    classDef store fill:#f3f4f1,stroke:#65757b,stroke-width:1.5px,color:#172c37;
+    classDef ext fill:#ffffff,stroke:#2f5d8a,stroke-width:1.5px,stroke-dasharray:4 3,color:#172c37;
+    classDef mock fill:#ffffff,stroke:#9aa5a8,stroke-width:1.5px,stroke-dasharray:6 4,color:#65757b;

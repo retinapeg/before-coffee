@@ -8,6 +8,22 @@ The email is the least interesting part. What this repository is really about is
 decisions behind it: a model I specified and then chose not to build once I'd measured
 the data, and three failures that no dashboard would have caught.
 
+![Terminal output of pytest on tests/test_refresh_and_signals.py: the 24 selection-signal tests pass and the 13 scheduler tests fail with ModuleNotFoundError for careerops.store](docs/images/signals-tests.png)
+
+*A real offline run of this repository's own tests on invented data: the 24 signal tests pass, and the 13 scheduler tests fail on `import careerops.store`, which isn't in this extract ([raw output](docs/images/signals-tests.txt)).*
+
+## System architecture
+
+![Architecture of Before Coffee: an opt-in hourly refresh loop starts or resumes the private collector, which writes vacancies from public job sources into a SQLite store; at 07:00 digest_cli selects roles with fixed rules and three signals, then renders a plain-text email and sends it through Gmail to the owner's own inbox, recording the sent ids in the store](docs/images/architecture.svg)
+
+*Purple: model call · blue: deterministic code · green: human · amber: evaluation · grey: storage · dashed: external, optional, mocked or planned*
+
+While the web app is open and the poll is enabled (it is off by default), `RefreshLoop` in `refresh.py` asks it for a collection run once an hour, resuming the previous run's checkpoint while its queue has work, and the collector writes new vacancies into a SQLite store. At 07:00 a launchd job runs `digest_cli`, where `digest.select` skips roles in the sent ledger, keeps those with a strong or plausible fit band in a configured location, tags each with the three signals from `signals.py` and caps the list at 25. `digest_delivery` then sends one plain-text email to the mailbox Gmail reports as authenticated and records the sent IDs. The boxes marked "not in repo" and the location classifier (`inventory.classify_job`) live in the private system (see [What is and isn't here](#what-is-and-isnt-here)).
+
+## Does it use AI at runtime?
+
+No: nothing in this code calls a model, selection uses fixed rules and three deterministic signals (see [How selection works](#how-selection-works)), and the contextual bandit from finding 1 was measured and deliberately not built. The fit band that selection filters on is read from the store, and the private code that computes it isn't in this repository.
+
 ---
 
 ## What it does
