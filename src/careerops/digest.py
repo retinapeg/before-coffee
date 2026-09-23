@@ -59,7 +59,6 @@ SETTINGS_KEY = "digest"
 MAX_JOBS = 25
 FIT_BANDS = {"strong", "plausible"}
 
-# Strongest reason first. A job is listed under the first heading that applies.
 # The email's two sections, in printing order. Each job appears in exactly one.
 # Roles outside every configured country are excluded before this point.
 SECTIONS = (
