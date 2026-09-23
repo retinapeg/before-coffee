@@ -54,9 +54,11 @@ So each poll resumes the previous run's checkpoint, which restores its `pending`
 queue, and works through it. `alive()` compares `elapsed_before + time since start`
 against `timeout_seconds`, so a resumed run with a budget it has already spent stops
 before issuing one request. The budget therefore has to grow along the chain:
-`scheduled_budget` sets it to `consumed + slice`. Every limit is written with `max()`
-against what is already configured, so a scheduled run is never smaller than one the
-user could start by hand - this can widen coverage and cannot narrow it. When the
+`scheduled_budget` sets it to `consumed + slice`, and never below the project default
+timeout. Every value it writes is at least `COVERAGE_DEFAULTS` for that key and at
+least the value already in the same scope budget slot, so within that slot this can
+widen coverage and cannot narrow it. It does not compare against lower-precedence
+limits configured elsewhere. When the
 pending queue empties the chain is cleared and the next poll starts fresh, which
 re-seeds the registry and so picks up boards verified since.
 """
@@ -219,11 +221,15 @@ def continuation(store, scope: str, *, configured=None) -> dict:
 def scheduled_budget(store, scope: str, *, consumed_seconds: float, configured=None) -> dict:
     """Widen this scope's coverage budget so a continued run can actually do work.
 
-    Every value is written with max() against what is already configured, so this can
-    only ever increase coverage. It is written into
-    settings['search']['scope_budgets'][scope][mode], the highest-precedence slot in
-    discovery.coverage_limits, and the mode is the scheduler's own - so a manual
-    search in another mode is untouched.
+    The result is written into settings['search']['scope_budgets'][scope][mode], the
+    highest-precedence slot in discovery.coverage_limits, and the mode is the
+    scheduler's own - so a manual search in another mode is untouched.
+
+    What it guarantees, for every key in COVERAGE_DEFAULTS: the value written is at
+    least COVERAGE_DEFAULTS[key], and at least the value already in that same slot.
+    timeout_seconds is consumed + slice, capped at TIMEOUT_CEILING, and raised to the
+    default timeout when that is smaller. It does not read lower-precedence limits
+    configured elsewhere (for example search.limits), so it makes no promise about them.
 
     Without this a continued run stops before its first request: alive() compares
     elapsed_before plus time-since-start against timeout_seconds, and a resumed run
@@ -239,9 +245,11 @@ def scheduled_budget(store, scope: str, *, consumed_seconds: float, configured=N
     current = dict(scoped.get(mode) or {})
 
     wanted = int(consumed_seconds) + configured["slice_seconds"]
+    # The slice can be shorter than the default timeout, so the default is the floor.
     target = {**{k: COVERAGE_DEFAULTS[k] for k in COVERAGE_DEFAULTS},
-              "timeout_seconds": min(TIMEOUT_CEILING, wanted)}
-    # max() against the existing value: never narrow what the user configured.
+              "timeout_seconds": max(COVERAGE_DEFAULTS["timeout_seconds"],
+                                     min(TIMEOUT_CEILING, wanted))}
+    # max() against the existing value: never narrow what is already in this slot.
     merged = {k: max(int(current.get(k, 0) or 0), int(target[k])) for k in target}
     scoped[mode] = merged
     store.put_meta("settings", every)

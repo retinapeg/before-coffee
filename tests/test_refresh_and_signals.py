@@ -230,6 +230,21 @@ def test_a_scheduled_run_can_only_widen_coverage_never_narrow(tmp_path):
         assert merged[key] >= floor, f"{key} fell below the project default"
 
 
+def test_a_first_scheduled_run_on_a_fresh_store_is_never_below_the_project_defaults(tmp_path):
+    """With nothing configured in scope_budgets, the slot this writes is the highest
+    precedence one, so a value below COVERAGE_DEFAULTS would narrow every scheduled run.
+    The slice (600s) is shorter than the default timeout (900s)."""
+    from careerops.discovery import COVERAGE_DEFAULTS
+    store = _scheduling_store(tmp_path, slice_seconds=600)
+    assert "scope_budgets" not in store.settings().get("search", {})
+
+    merged = refresh.scheduled_budget(store, "london", consumed_seconds=0.0)
+    for key, floor in COVERAGE_DEFAULTS.items():
+        assert merged[key] >= floor, f"{key} fell below the project default"
+    stored = store.settings()["search"]["scope_budgets"]["london"]["deep"]
+    assert stored == merged
+
+
 def test_the_budget_grows_along_the_chain_or_a_resumed_run_does_no_work(tmp_path):
     """alive() charges elapsed_before against timeout_seconds, so a continued run whose
     budget has not grown stops before its first request."""
