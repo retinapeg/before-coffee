@@ -157,7 +157,9 @@ def select(store, *, now=None, limit=None, fresh_hours=None, include_already_sen
     terms = signals.searched_terms(store_settings)
     source_types = _source_types(store)
 
-    enabled_countries = {code for code, value in (store_settings.get("locations") or {}).items()
+    # Upper case, because classify_job reports country codes in upper case.
+    enabled_countries = {str(code).upper()
+                         for code, value in (store_settings.get("locations") or {}).items()
                          if (value or {}).get("enabled")}
     location_gate = configured["require_configured_location"] and bool(enabled_countries)
 

@@ -224,6 +224,21 @@ def test_a_role_outside_every_configured_location_is_not_offered(tmp_path):
     assert digest.select(store, now=NOW)["counts"]["outside_configured_locations"] == 1
 
 
+def test_a_country_enabled_under_a_lower_case_key_still_counts(tmp_path):
+    """The classifier reports country codes in upper case, so a location saved as "fr"
+    must still match a role in one of its cities rather than be counted as outside."""
+    store = _store(tmp_path, [{"location": "Paris, France"}],
+                   settings={"require_configured_location": True})
+    configured = store.settings()
+    configured["locations"]["fr"] = {"enabled": True, "cities": ["Paris"]}
+    store.put_meta("settings", configured)
+
+    data = digest.select(store, now=NOW)
+    assert data["counts"]["outside_configured_locations"] == 0
+    assert data["counts"]["selected"] == 1
+    assert data["rows"][0]["region"] == "international"
+
+
 def test_every_considered_role_is_accounted_for_in_the_counts(tmp_path, capsys):
     """The counts line and the empty digest must add up: a role excluded for its
     location is reported as such rather than disappearing from the arithmetic."""
