@@ -205,6 +205,31 @@ def test_a_role_outside_every_configured_location_is_not_offered(tmp_path):
     assert digest.select(store, now=NOW)["counts"]["outside_configured_locations"] == 1
 
 
+def test_every_considered_role_is_accounted_for_in_the_counts(tmp_path, capsys):
+    """The counts line and the empty digest must add up: a role excluded for its
+    location is reported as such rather than disappearing from the arithmetic."""
+    store = _store(tmp_path, [{"location": "Shanghai, China"},
+                              {"evaluation": {"candidacy": {"fit_band": "not_suitable"}}}],
+                   settings={"require_configured_location": True,
+                             "allow_other_recipient": True})
+    data, body = _body(store)
+    counts = data["counts"]
+    assert counts["outside_configured_locations"] == 1 and counts["below_band"] == 1
+    assert counts["considered"] == (counts["qualifying"] + counts["already_sent"]
+                                    + counts["below_band"] + counts["outside_configured_locations"])
+    assert "1 were outside your configured locations" in body
+
+    from careerops import digest_cli
+    assert digest_cli.main(["--dry-run", "--data", str(tmp_path / "digest.sqlite3")]) == 0
+    line = capsys.readouterr().out.splitlines()[0]
+    numbers = dict((label.strip(), int(value)) for label, value in
+                   (part.strip().rsplit(" ", 1) for part in line.split("|")))
+    assert numbers["outside configured locations"] == 1
+    assert numbers["considered"] == (numbers["qualifying"] + numbers["in an earlier digest"]
+                                     + numbers["below the criteria"]
+                                     + numbers["outside configured locations"])
+
+
 def test_the_location_gate_can_be_turned_off(tmp_path):
     store = _store(tmp_path, [{"location": "Shanghai, China", "country": "CN"}],
                    settings={"require_configured_location": False})

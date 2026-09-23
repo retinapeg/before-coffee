@@ -323,7 +323,9 @@ def render(data: dict) -> tuple[str, str]:
         lines += ["Nothing qualified this time.", "",
                   f"  {counts['qualifying']} met your criteria, "
                   f"{counts['already_sent']} were in an earlier digest, "
-                  f"{counts['below_band']} did not meet the criteria.",
+                  f"{counts['below_band']} did not meet the criteria, "
+                  f"{counts.get('outside_configured_locations', 0)} were outside your"
+                  " configured locations.",
                   "", "Discovery is still running hourly. Nothing has been sent on your"
                   " behalf and nothing has been applied for."]
         return subject, "\n".join(lines)
