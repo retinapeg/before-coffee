@@ -256,17 +256,21 @@ def scheduled_budget(store, scope: str, *, consumed_seconds: float, configured=N
     return merged
 
 
-# A run in one of these states still has a live worker. Anything else is finished,
-# however it finished, so its id in running_ids is a leak.
-LIVE_STATUSES = {"running", "cancelling"}
+# A run in one of these states has finished, however it finished, so its id in
+# running_ids is a leak. This is RESUMABLE plus `completed`, listed explicitly: any
+# other status, including one this module does not recognise, is left alone.
+TERMINAL_STATUSES = {"completed", "failed", "cancelled", "time_limit", "limit_reached",
+                     "interrupted"}
 
 
 def reap_stale_runs(application) -> list:
     """Drop run ids whose worker has died without clearing itself.
 
-    Only ever discards an id whose stored status is POSITIVELY terminal. An id with no
-    row, or a row we cannot read, is left alone: refusing to poll for an hour is a far
-    smaller harm than starting a second concurrent search over the same store.
+    Only ever discards an id whose stored status is POSITIVELY terminal, meaning one of
+    TERMINAL_STATUSES. An id with no row, a row we cannot read, or any other status
+    (running, cancelling, or one not recognised here such as queued) is left alone:
+    refusing to poll for an hour is a far smaller harm than starting a second
+    concurrent search over the same store.
     """
     running = getattr(application, "running_ids", None)
     if not running:
@@ -276,7 +280,7 @@ def reap_stale_runs(application) -> list:
     except Exception:  # noqa: BLE001 - a failed read must not start a concurrent search
         return []
     stale = [run_id for run_id in list(running)
-             if statuses.get(run_id) and statuses[run_id] not in LIVE_STATUSES]
+             if statuses.get(run_id) in TERMINAL_STATUSES]
     if not stale:
         return []
     lock = getattr(application, "search_lock", None)

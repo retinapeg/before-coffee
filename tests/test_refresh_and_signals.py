@@ -323,6 +323,28 @@ def test_a_dead_worker_does_not_block_the_poll_forever(tmp_path):
     assert dead["id"] not in app.running_ids
 
 
+def test_only_a_positively_terminal_status_is_reaped(tmp_path):
+    """A status the reaper does not recognise, such as 'queued', might belong to a run
+    that has not started working yet, so its id stays. A 'failed' one is still cleared."""
+    class FakeApp:
+        def __init__(self, store, running):
+            self.store, self.running_ids = store, set(running)
+
+    store = _scheduling_store(tmp_path)
+    queued = store.create_run("deep", None, None)
+    store.update_run(queued["id"], {"status": "queued"})
+    failed = store.create_run("deep", None, None)
+    store.update_run(failed["id"], {"status": "failed"})
+
+    app = FakeApp(store, {queued["id"]})
+    assert refresh.reap_stale_runs(app) == []
+    assert queued["id"] in app.running_ids
+
+    app = FakeApp(store, {queued["id"], failed["id"]})
+    assert refresh.reap_stale_runs(app) == [failed["id"]]
+    assert app.running_ids == {queued["id"]}
+
+
 def test_a_live_search_is_still_never_interrupted(tmp_path):
     """The reaper must not become a way to start a second concurrent search."""
     from careerops.store import Store
