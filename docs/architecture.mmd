@@ -3,8 +3,8 @@
 %% Render: npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/images/architecture.svg -b white
 flowchart TD
     boards["Public job sources<br/>ATS boards, aggregators"]:::ext
-    loop["RefreshLoop, hourly<br/>refresh.py"]:::det
-    collector["Web app + collector<br/>start_search (not in repo)"]:::mock
+    loop["RefreshLoop, refresh.py<br/>hourly, when enabled"]:::det
+    collector["Web app + collector<br/>start_search (not in repo)"]:::ext
     checks["70 tests, invented data<br/>+ ingestion census"]:::eval
     store[("SQLite job store<br/>jobs, runs, sent ledger<br/>(store code not in repo)")]:::store
     cli["digest_cli --send<br/>launchd, 07:00"]:::det
@@ -15,8 +15,8 @@ flowchart TD
     owner["Owner's own inbox<br/>reads and decides"]:::human
 
     boards -->|"public pages"| collector
-    loop -->|"resume checkpoint"| collector
-    loop <-.->|"run state, budgets"| store
+    loop -->|"start or resume run"| collector
+    loop <-->|"run state, budgets"| store
     collector -->|"new vacancies"| store
     checks -.->|"census: read-only"| store
     store -->|"jobs + fit band"| select

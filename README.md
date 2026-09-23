@@ -14,11 +14,11 @@ the data, and three failures that no dashboard would have caught.
 
 ## System architecture
 
-![Architecture of Before Coffee: an hourly refresh loop resumes the private collector, which writes vacancies from public job sources into a SQLite store; at 07:00 digest_cli selects roles with fixed rules and three signals, then renders a plain-text email and sends it through Gmail to the owner's own inbox, recording the sent ids in the store](docs/images/architecture.svg)
+![Architecture of Before Coffee: an opt-in hourly refresh loop starts or resumes the private collector, which writes vacancies from public job sources into a SQLite store; at 07:00 digest_cli selects roles with fixed rules and three signals, then renders a plain-text email and sends it through Gmail to the owner's own inbox, recording the sent ids in the store](docs/images/architecture.svg)
 
 *Purple: model call · blue: deterministic code · green: human · amber: evaluation · grey: storage · dashed: external, optional, mocked or planned*
 
-Every hour, `RefreshLoop` in `refresh.py` asks the private web app for a collection run, resuming the previous run's checkpoint while its queue has work, and the collector writes new vacancies into a SQLite store. At 07:00 a launchd job runs `digest_cli`, where `digest.select` skips roles in the sent ledger, keeps those with a strong or plausible fit band in a configured location, tags each with the three signals from `signals.py` and caps the list at 25. `digest_delivery` then sends one plain-text email to the mailbox Gmail reports as authenticated and records the sent IDs. The boxes marked "not in repo" and the location classifier (`inventory.classify_job`) live in the private system (see [What is and isn't here](#what-is-and-isnt-here)).
+While the web app is open and the poll is enabled (it is off by default), `RefreshLoop` in `refresh.py` asks it for a collection run once an hour, resuming the previous run's checkpoint while its queue has work, and the collector writes new vacancies into a SQLite store. At 07:00 a launchd job runs `digest_cli`, where `digest.select` skips roles in the sent ledger, keeps those with a strong or plausible fit band in a configured location, tags each with the three signals from `signals.py` and caps the list at 25. `digest_delivery` then sends one plain-text email to the mailbox Gmail reports as authenticated and records the sent IDs. The boxes marked "not in repo" and the location classifier (`inventory.classify_job`) live in the private system (see [What is and isn't here](#what-is-and-isnt-here)).
 
 ## Does it use AI at runtime?
 
