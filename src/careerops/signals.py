@@ -102,7 +102,7 @@ def evaluate(job: dict, settings: dict, *, now: datetime | None = None,
 
     posted = _parse(job.get("posted_at"))
     age_hours = (now - posted).total_seconds() / 3600 if posted else None
-    # Absent posting date is unknown age, never new. AGENTS.md: "First seen is
+    # Absent posting date is unknown age, never new. Project rule: "First seen is
     # never a posting date." first_seen is deliberately not consulted here at all.
     fresh_hit = age_hours is not None and 0 <= age_hours <= fresh_hours
 
@@ -119,7 +119,7 @@ def evaluate(job: dict, settings: dict, *, now: datetime | None = None,
     # `recommended` is False for all 1,610 stored jobs, because the recommendation
     # gate closes on any uncertainty and every advert carries some, so reading it
     # would make ADJACENT permanently dead. fit_band varies (204 plausible, 264
-    # stretch, 1,142 not_suitable). See SESSION_NOTES.md.
+    # stretch, 1,142 not_suitable).
     candidacy = (job.get("evaluation") or {}).get("candidacy") or {}
     meets_criteria = str(candidacy.get("fit_band") or "") in {"strong", "plausible"}
     adjacent_hit = bool(meets_criteria and title_words and not overlap)

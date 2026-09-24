@@ -1,8 +1,8 @@
 """A background poll that keeps discovery running while the app is open.
 
-Project policy has been that schedules are off; the owner is turning this one on
-deliberately, so it is off by default, gated on an explicit setting, and does
-nothing at all until asked.
+Project policy has been that schedules are off; this one is a deliberate exception,
+so it is off by default, gated on an explicit setting, and does nothing at all until
+asked.
 
 **It collects. It never filters.** This module opens no new route to discovery: it
 calls `Application.start_search`, the same entry point the "Fetch new vacancies"

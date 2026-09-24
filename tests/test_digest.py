@@ -2,8 +2,8 @@
 
 Every job here is invented. Example-based tests over the owner's own store would
 quietly become tests about the owner, would leak their data into the repository, and
-would break whenever discovery ran. The properties asserted are the ones the brief and
-AGENTS.md actually require, so they hold for any store.
+would break whenever discovery ran. The properties asserted are the ones the project's
+rules actually require, so they hold for any store.
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def _body(store, **kwargs):
 # --- what counts as new, and what counts as old -------------------------------------
 
 def test_a_job_with_no_posting_date_is_listed_and_labelled_not_guessed(tmp_path):
-    """AGENTS.md: first seen is never a posting date. A job the employer dated is the
+    """Project rule: first seen is never a posting date. A job the employer dated is the
     only kind that can be called recent."""
     store = _store(tmp_path, [{"posted_at": None, "first_seen": NOW.isoformat()}])
     data, body = _body(store)
@@ -140,7 +140,7 @@ def test_resending_deliberately_overrides_the_ledger(tmp_path):
     r"\byou (?:will|should) (?:hear|get|expect)\b", r"\bshortlist(?:ed|ing)? (?:odds|chance)",
 ])
 def test_the_email_never_predicts_or_scores(tmp_path, forbidden):
-    """The brief: never a match percentage, never an interview-odds claim."""
+    """Never a match percentage, never an interview-odds claim."""
     store = _store(tmp_path, [{"posted_at": (NOW - timedelta(hours=2)).isoformat(),
                                "salary_text": "£40,000"} for _ in range(4)])
     _, body = _body(store)
@@ -294,8 +294,9 @@ def test_the_message_carries_no_attachment_and_no_html(tmp_path):
 
 
 def test_london_and_international_are_separate_sections_in_that_order(tmp_path):
-    """The owner asked for two sections. Roles outside every configured country are
-    still excluded - an International section is not a licence to show Shanghai."""
+    """Two sections, London then International. Roles outside every configured
+    country are still excluded - an International section is not a licence to show
+    Shanghai."""
     store = _store(tmp_path, [
         {"location": "London, United Kingdom", "title": "Data Engineer"},
         {"location": "Paris, France", "title": "Data Engineer"},
